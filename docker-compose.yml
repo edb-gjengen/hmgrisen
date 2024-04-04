@@ -1,0 +1,22 @@
+version: "3"
+
+services:
+  hmgrisen_bot:
+    container_name: hmgrisen_bot
+    build: ./bot
+    network_mode: "host"
+    environment:
+      - TZ=Europe/Oslo
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      - hmgrisen_verification_server
+    env_file:
+      - .env
+
+  hmgrisen_verification_server:
+    container_name: hmgrisen_verification_server
+    build: ./verification_server
+    network_mode: "host"
+    env_file:
+      - .env

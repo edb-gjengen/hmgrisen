@@ -1,0 +1,14 @@
+*.pyc
+*.log
+__pycache__/
+.vscode/
+.idea/
+assets/temp/
+venv/
+.env/
+lib64
+pyvenv.cfg
+lib/
+bin/
+include/
+.env
