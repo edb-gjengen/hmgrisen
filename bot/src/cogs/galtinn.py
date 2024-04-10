@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 import secrets
 import urllib.parse
 
@@ -26,6 +27,8 @@ class Galtinn(commands.Cog):
 
         self.init_db()
 
+        self.verification_cleanup.start()
+
     def init_db(self):
         """
         Create the necessary tables for the cog to work
@@ -44,7 +47,8 @@ class Galtinn(commands.Cog):
             CREATE TABLE IF NOT EXISTS galtinn_verification (
                 discord_id BIGINT PRIMARY KEY,
                 challenge TEXT NOT NULL,
-                state TEXT NOT NULL
+                state TEXT NOT NULL,
+                expires TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'utc') + INTERVAL '2 minutes'
             );
             """
         )
@@ -60,6 +64,7 @@ class Galtinn(commands.Cog):
     def cog_unload(self):
         self.bot.logger.info("Unloading cog")
         self.membership_check.cancel()
+        self.verification_cleanup.cancel()
         self.cursor.close()
 
     @tasks.loop(time=misc_utils.MIDNIGHT)
@@ -103,6 +108,29 @@ class Galtinn(commands.Cog):
 
     galtinn_group = app_commands.Group(name="galtinn", description="Koble Galtinnbrukeren din til Discord")
 
+    @tasks.loop(minutes=2)
+    async def verification_cleanup(self):
+        """
+        Clean up any pending verifications that have expired. This is in case the register command fails to do so
+        """
+
+        self.cursor.execute(
+            """
+            SELECT discord_id, expires
+            FROM galtinn_verification;
+            """
+        )
+        for result in self.cursor.fetchall():
+            discord_id, expires = result
+            if expires < datetime.utcnow():
+                self.cursor.execute(
+                    """
+                    DELETE FROM galtinn_verification
+                    WHERE discord_id = %s;
+                    """,
+                    (discord_id,),
+                )
+
     @app_commands.checks.bot_has_permissions(embed_links=True)
     @galtinn_group.command(name="registrer", description="Koble Galtinnbrukeren din til Discord")
     async def register(self, interaction: discord.Interaction):
@@ -133,7 +161,7 @@ class Galtinn(commands.Cog):
         # Check if user is already pending verification
         self.cursor.execute(
             """
-            SELECT *
+            SELECT discord_id, challenge, state
             FROM galtinn_verification
             WHERE discord_id = %s
             """,

@@ -45,7 +45,7 @@ async def callback(request: Request, code: str, state: str):
     # Check if user is pending verification
     db_cursor.execute(
         """
-        SELECT *
+        SELECT discord_id, challenge, state
         FROM galtinn_verification WHERE state = %s
         """,
         (state,),
