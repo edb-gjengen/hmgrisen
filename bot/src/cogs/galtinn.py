@@ -1,3 +1,4 @@
+import asyncio
 import secrets
 import urllib.parse
 
@@ -170,6 +171,15 @@ class Galtinn(commands.Cog):
             + f"{url}\n\nDu har 2 minutter på deg til å fullføre verifikasjonen."
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
+
+        await asyncio.sleep(120)
+        self.cursor.execute(
+            """
+            DELETE FROM galtinn_verification
+            WHERE discord_id = %s;
+            """,
+            (interaction.user.id,),
+        )
 
     @app_commands.checks.bot_has_permissions(embed_links=True)
     @galtinn_group.command(name="slett", description="Fjern koblingen mellom Galtinnbrukeren din og Discord")
