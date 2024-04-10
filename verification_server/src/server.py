@@ -132,7 +132,7 @@ async def callback(request: Request, code: str, state: str):
         (discord_id,),
     )
 
-    return RedirectResponse(f"/success/{user['name']}", status_code=303)
+    return RedirectResponse(f"/success/{user['preferred_username']}", status_code=303)
 
 
 @app.get("/success/{name}")
