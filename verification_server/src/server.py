@@ -87,7 +87,7 @@ async def callback(request: Request, code: str, state: str):
         "code_verifier": state,
     }
     async with aiohttp.ClientSession() as session:
-        async with session.post(f"{GALTINN_API_URL}/ouath/token", data=payload) as r:
+        async with session.post(f"{GALTINN_API_URL}/ouath/token/", data=payload) as r:
             if r.status != 200:
                 return templates.TemplateResponse(
                     "error.html",
@@ -102,7 +102,7 @@ async def callback(request: Request, code: str, state: str):
     # Get user info from galtinn
     async with aiohttp.ClientSession() as session:
         async with session.get(
-            f"{GALTINN_API_URL}/oauth/userinfo",
+            f"{GALTINN_API_URL}/oauth/userinfo/",
             headers={"Authorization": f"Bearer {data['access_token']}"},
         ) as r:
             if r.status != 200:
