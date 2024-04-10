@@ -70,7 +70,7 @@ async def callback(request: Request, code: str, state: str):
         "code_verifier": code_challenge,
     }
     async with aiohttp.ClientSession() as session:
-        async with session.post(f"{GALTINN_API_URL}/ouath/token/", data=payload) as r:
+        async with session.post(f"{GALTINN_API_URL}/oauth/token/", data=payload) as r:
             if r.status != 200:
                 return templates.TemplateResponse(
                     "error.html",
@@ -101,16 +101,17 @@ async def callback(request: Request, code: str, state: str):
     # Enter user into database
     db_cursor.execute(
         """
-        INSERT INTO users (discord_id, galtinn_id)
+        INSERT INTO galtinn_users (discord_id, galtinn_id)
         VALUES (%s, %s)
         """,
-        (discord_id, user["id"]),
+        (discord_id, user["sub"]),  # TODO: use UUID?
     )
 
     # Delete verification entry
     db_cursor.execute(
         """
-        DELETE FROM verification WHERE discord_id = %s
+        DELETE FROM galtinn_verification
+        WHERE discord_id = %s
         """,
         (discord_id,),
     )
