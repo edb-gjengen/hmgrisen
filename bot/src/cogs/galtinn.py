@@ -43,7 +43,8 @@ class Galtinn(commands.Cog):
             """
             CREATE TABLE IF NOT EXISTS galtinn_verification (
                 discord_id BIGINT PRIMARY KEY,
-                challenge TEXT NOT NULL
+                challenge TEXT NOT NULL,
+                state TEXT NOT NULL
             );
             """
         )
@@ -144,7 +145,8 @@ class Galtinn(commands.Cog):
             return
 
         # Generate OAuth2 URL
-        challenge = f"{interaction.user.id}:{secrets.token_urlsafe(32)}"
+        challenge = f"{secrets.token_urlsafe(32)}"  # TODO: generate challenge based on private key?
+        state = f"{secrets.token_urlsafe(32)}"
         base_url = f"{self.bot.galtinn['api_url']}/oauth/authorize/"
         params = {
             "client_id": self.bot.galtinn["client_id"],
@@ -152,6 +154,7 @@ class Galtinn(commands.Cog):
             "response_type": "code",
             "redirect_uri": self.bot.galtinn["redirect_uri"],
             "code_challenge": challenge,
+            "state": state,
         }
         url = f"{base_url}?{urllib.parse.urlencode(params)}"
 
@@ -159,9 +162,9 @@ class Galtinn(commands.Cog):
         self.cursor.execute(
             """
             INSERT INTO galtinn_verification
-            VALUES (%s, %s)
+            VALUES (%s, %s, %s)
             """,
-            (interaction.user.id, challenge),
+            (interaction.user.id, challenge, state),
         )
 
         self.bot.logger.info(f"Generated challenge for user {interaction.user.id}")

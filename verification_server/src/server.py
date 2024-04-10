@@ -41,24 +41,14 @@ async def index():
 
 @app.get("/callback")
 async def callback(request: Request, code: str, state: str):
-    try:
-        discord_id, _ = state.split(":")
-    except ValueError:
-        return templates.TemplateResponse(
-            "error.html",
-            {
-                "request": request,
-                "message": "Ugyldig forespørsel! Manglende data eller feil format",
-            },
-        )
 
     # Check if user is pending verification
     db_cursor.execute(
         """
         SELECT *
-        FROM verification WHERE discord_id = %s
+        FROM galtinn_verification WHERE state = %s
         """,
-        (discord_id,),
+        (state,),
     )
     if not (db_result := db_cursor.fetchone()):
         return templates.TemplateResponse(
@@ -69,14 +59,7 @@ async def callback(request: Request, code: str, state: str):
             },
         )
 
-    if db_result[1] != state:
-        return templates.TemplateResponse(
-            "error.html",
-            {
-                "request": request,
-                "message": "Ugyldig lenke! Prøv igjen fra start",
-            },
-        )
+    discord_id, code_challenge, state = db_result
 
     # Get auth_token from code
     payload = {
@@ -84,7 +67,7 @@ async def callback(request: Request, code: str, state: str):
         "grant_type": "authorization_code",
         "code": code,
         "redirect_uri": GALTINN_REDIRECT_URI,
-        "code_verifier": state,
+        "code_verifier": code_challenge,
     }
     async with aiohttp.ClientSession() as session:
         async with session.post(f"{GALTINN_API_URL}/ouath/token/", data=payload) as r:
