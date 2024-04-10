@@ -79,14 +79,14 @@ async def callback(request: Request, code: str, state: str):
                         "message": "Kunne ikke hente hente nøkkel fra Galtinn. Kontakt din nærmeste EDB'er",
                     },
                 )
-            data = await r.json()
-            print(data)
+            token_data = await r.json()
+            print(token_data)
 
     # Get user info from galtinn
     async with aiohttp.ClientSession() as session:
         async with session.get(
             f"{GALTINN_API_URL}/oauth/userinfo/",
-            headers={"Authorization": f"Bearer {data['access_token']}"},
+            headers={"Authorization": f"Bearer {token_data['access_token']}"},
         ) as r:
             if r.status != 200:
                 return templates.TemplateResponse(
