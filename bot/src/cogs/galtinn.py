@@ -27,6 +27,7 @@ class Galtinn(commands.Cog):
 
         self.init_db()
 
+        self.membership_check.start()
         self.verification_cleanup.start()
 
     def init_db(self):
