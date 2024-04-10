@@ -115,6 +115,7 @@ class Galtinn(commands.Cog):
 
         await interaction.response.defer()
 
+        # Check if user is already registered
         self.cursor.execute(
             """
             SELECT *
@@ -123,12 +124,12 @@ class Galtinn(commands.Cog):
             """,
             (interaction.user.id,),
         )
-
         if self.cursor.fetchone():
             embed = embed_templates.error_warning("Du er allerede registrert med en Galtinnbruker!")
             await interaction.followup.send(embed=embed)
             return
 
+        # Check if user is already pending verification
         self.cursor.execute(
             """
             SELECT *
