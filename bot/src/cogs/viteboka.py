@@ -2,10 +2,9 @@ import discord
 import pypandoc
 import regex  # This should be redundant as re now supports recursive patterns, but apparently it doesn't
 import requests
+from cogs.utils import embed_templates
 from discord import app_commands
 from discord.ext import commands
-
-from cogs.utils import embed_templates
 
 WIKI_BASE_URL = "https://viteboka.studentersamfundet.no"
 API_URL = f"{WIKI_BASE_URL}/w/api.php"

@@ -5,7 +5,6 @@ import asyncpg
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-
 from logger import BotLogger
 
 # Load config file

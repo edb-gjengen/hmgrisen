@@ -1,6 +1,6 @@
 aiohttp==3.9.*
+asyncpg==0.29.*
 fastapi==0.110.*
 jinja2==3.1.*
-asyncpg==0.29.*
 python-dotenv==1.0.*
 uvicorn==0.29.*

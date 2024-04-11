@@ -1,7 +1,7 @@
 import os
 
-import asyncpg
 import aiohttp
+import asyncpg
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi import Request
@@ -46,7 +46,6 @@ async def index():
 
 @app.get("/callback")
 async def callback(request: Request, code: str, state: str):
-
     # Check if user is pending verification
     verification = await app.state.pool.fetchrow(
         """

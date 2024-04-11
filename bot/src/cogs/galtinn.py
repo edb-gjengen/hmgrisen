@@ -1,15 +1,14 @@
 import asyncio
-from datetime import datetime
 import secrets
 import urllib.parse
+from datetime import datetime
 
 import discord
+from cogs.utils import embed_templates
+from cogs.utils import misc_utils
 from discord import app_commands
 from discord.ext import commands
 from discord.ext import tasks
-
-from cogs.utils import embed_templates
-from cogs.utils import misc_utils
 
 
 class Galtinn(commands.Cog):
