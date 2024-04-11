@@ -74,13 +74,33 @@ class Galtinn(commands.Cog):
         Checks all registered user's membership status and assigns roles based on the status
         """
 
+        # Fetch galtinn organization roles
+        roles = {}
+        self.cursor.execute(
+            """
+            SELECT *
+            FROM galtinn_roles;
+            """
+        )
+        if db_roles := self.cursor.fetchall():
+            for role_id, galtinn_org_id in db_roles:
+                role = self.bot.get_role(role_id)
+                if not role:
+                    role = await self.bot.fetch_role(role_id)
+
+                if not role:
+                    self.bot.logger.info(f"Role with ID {role_id} not found")
+                    continue
+
+                roles[galtinn_org_id] = role
+
+        # Fetch registered users
         self.cursor.execute(
             """
             SELECT *
             FROM galtinn_users;
             """
         )
-
         if not (results := self.cursor.fetchall()):
             self.bot.logger.info("No registered users found")
 
@@ -95,7 +115,7 @@ class Galtinn(commands.Cog):
                 self.bot.logger.info(f"User with ID {discord_id} not found")
                 continue
 
-            # Fetch membership status
+            # Fetch galtinn user info (membership status and orgs)
 
             # Set roles
 
