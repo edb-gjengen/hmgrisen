@@ -56,8 +56,8 @@ class Galtinn(commands.Cog):
         self.cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS galtinn_roles (
-                galtinn_org_id TEXT PRIMARY KEY,
-                discord_role_id BIGINT NOT NULL
+                discord_role_id BIGINT PRIMARY KEY,
+                galtinn_org_id TEXT NOT NULL
             );
             """
         )
