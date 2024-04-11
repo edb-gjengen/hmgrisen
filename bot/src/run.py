@@ -1,8 +1,8 @@
 import os
 from time import time
 
+import asyncpg
 import discord
-import psycopg2
 from discord.ext import commands
 from dotenv import load_dotenv
 
@@ -25,14 +25,6 @@ class Bot(commands.Bot):
 
         self.cog_files = set(os.listdir("./src/cogs"))
 
-        self.db_connection = psycopg2.connect(
-            host=os.environ["DATABASE_HOST"],
-            dbname=os.environ["DATABASE_NAME"],
-            user=os.environ["DATABASE_USER"],
-            password=os.environ["DATABASE_PASSWORD"],
-        )
-        self.db_connection.autocommit = True  # Scary
-
         self.galtinn = {
             "api_url": os.environ.get("GALTINN_API_URL", "http://127.0.0.1:8000"),
             "client_id": os.environ.get("GALTINN_CLIENT_ID"),
@@ -42,8 +34,18 @@ class Bot(commands.Bot):
         self.guild_id = os.environ.get("BOT_DEV_GUILD", 1162158668079444199)
 
     async def setup_hook(self):
-        cogs = os.listdir("./src/cogs")
+        # DB needs to be setup here because contructor is not async
+        # Not ideal but does the job
+        credentials = {
+            "host": os.environ["DATABASE_HOST"],
+            "database": os.environ["DATABASE_NAME"],
+            "user": os.environ["DATABASE_USER"],
+            "password": os.environ["DATABASE_PASSWORD"],
+        }
+        self.db = await asyncpg.create_pool(**credentials)
+
         # Load cogs
+        cogs = os.listdir("./src/cogs")
         for file in cogs:
             if file.endswith(".py"):
                 name = file[:-3]

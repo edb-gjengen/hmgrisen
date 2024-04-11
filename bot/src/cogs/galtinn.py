@@ -23,19 +23,16 @@ class Galtinn(commands.Cog):
         """
 
         self.bot = bot
-        self.cursor = self.bot.db_connection.cursor()
-
-        self.init_db()
 
         self.membership_check.start()
         self.verification_cleanup.start()
 
-    def init_db(self):
+    async def init_db(self):
         """
         Create the necessary tables for the cog to work
         """
 
-        self.cursor.execute(
+        await self.bot.db.execute(
             """
             CREATE TABLE IF NOT EXISTS galtinn_users (
                 discord_id BIGINT PRIMARY KEY,
@@ -43,7 +40,7 @@ class Galtinn(commands.Cog):
             );
             """
         )
-        self.cursor.execute(
+        await self.bot.db.execute(
             """
             CREATE TABLE IF NOT EXISTS galtinn_verification (
                 discord_id BIGINT PRIMARY KEY,
@@ -53,7 +50,7 @@ class Galtinn(commands.Cog):
             );
             """
         )
-        self.cursor.execute(
+        await self.bot.db.execute(
             """
             CREATE TABLE IF NOT EXISTS galtinn_roles (
                 discord_role_id BIGINT PRIMARY KEY,
@@ -66,7 +63,6 @@ class Galtinn(commands.Cog):
         self.bot.logger.info("Unloading cog")
         self.membership_check.cancel()
         self.verification_cleanup.cancel()
-        self.cursor.close()
 
     @tasks.loop(time=misc_utils.MIDNIGHT)
     async def membership_check(self):
@@ -76,14 +72,14 @@ class Galtinn(commands.Cog):
 
         # Fetch galtinn organization roles
         roles = {}
-        self.cursor.execute(
+        db_roles = await self.bot.db.fetch(
             """
             SELECT *
             FROM galtinn_roles;
             """
         )
-        if db_roles := self.cursor.fetchall():
-            for role_id, galtinn_org_id in db_roles:
+        if db_roles:
+            for role_id, galtinn_org_id in list(db_roles):
                 role = self.bot.get_role(role_id)
                 if not role:
                     role = await self.bot.fetch_role(role_id)
@@ -95,17 +91,17 @@ class Galtinn(commands.Cog):
                 roles[galtinn_org_id] = role
 
         # Fetch registered users
-        self.cursor.execute(
+        db_users = await self.bot.db.fetch(
             """
             SELECT *
             FROM galtinn_users;
             """
         )
-        if not (results := self.cursor.fetchall()):
+        if not db_users:
             self.bot.logger.info("No registered users found")
 
-        for result in results:
-            discord_id, galtinn_id = result
+        for db_user in db_users:
+            discord_id, galtinn_id = list(db_user)
 
             user = self.bot.get_user(discord_id)  # Try fetching discord user from cache
             if not user:
@@ -135,22 +131,30 @@ class Galtinn(commands.Cog):
         Clean up any pending verifications that have expired. This is in case the register command fails to do so
         """
 
-        self.cursor.execute(
+        results = await self.bot.db.fetch(
             """
             SELECT discord_id, expires
             FROM galtinn_verification;
             """
         )
-        for result in self.cursor.fetchall():
-            discord_id, expires = result
+        for result in results:
+            discord_id, expires = list(result)
             if expires < datetime.utcnow():
-                self.cursor.execute(
+                await self.bot.db.execute(
                     """
                     DELETE FROM galtinn_verification
-                    WHERE discord_id = %s;
+                    WHERE discord_id = $1;
                     """,
-                    (discord_id,),
+                    discord_id,
                 )
+
+    @verification_cleanup.before_loop
+    async def before_verification_cleanup(self):
+        """
+        Make sure bot is ready before starting the verification cleanup loop
+        """
+
+        await self.bot.wait_until_ready()
 
     @app_commands.checks.bot_has_permissions(embed_links=True)
     @galtinn_group.command(name="registrer", description="Koble Galtinnbrukeren din til Discord")
@@ -166,29 +170,29 @@ class Galtinn(commands.Cog):
         await interaction.response.defer()
 
         # Check if user is already registered
-        self.cursor.execute(
+        db_user = await self.bot.db.fetchrow(
             """
             SELECT *
             FROM galtinn_users
-            WHERE discord_id = %s
+            WHERE discord_id = $1;
             """,
-            (interaction.user.id,),
+            interaction.user.id,
         )
-        if self.cursor.fetchone():
+        if db_user:
             embed = embed_templates.error_warning("Du er allerede registrert med en Galtinnbruker!")
             await interaction.followup.send(embed=embed)
             return
 
         # Check if user is already pending verification
-        self.cursor.execute(
+        verification = await self.bot.db.fetchrow(
             """
             SELECT discord_id, challenge, state
             FROM galtinn_verification
-            WHERE discord_id = %s
+            WHERE discord_id = $1;
             """,
-            (interaction.user.id,),
+            interaction.user.id,
         )
-        if self.cursor.fetchone():
+        if verification:
             embed = embed_templates.error_warning("Du har allerede en pågående verifikasjon!")
             await interaction.followup.send(embed=embed)
             return
@@ -208,12 +212,14 @@ class Galtinn(commands.Cog):
         url = f"{base_url}?{urllib.parse.urlencode(params)}"
 
         # Insert into verfications table
-        self.cursor.execute(
+        await self.bot.db.execute(
             """
             INSERT INTO galtinn_verification
-            VALUES (%s, %s, %s)
+            VALUES ($1, $2, $3);
             """,
-            (interaction.user.id, challenge, state),
+            interaction.user.id,
+            challenge,
+            state,
         )
 
         self.bot.logger.info(f"Generated challenge for user {interaction.user.id}")
@@ -226,12 +232,12 @@ class Galtinn(commands.Cog):
         await interaction.followup.send(embed=embed, ephemeral=True)
 
         await asyncio.sleep(120)
-        self.cursor.execute(
+        await self.bot.db.execute(
             """
             DELETE FROM galtinn_verification
-            WHERE discord_id = %s;
+            WHERE discord_id = $1;
             """,
-            (interaction.user.id,),
+            interaction.user.id,
         )
 
     @app_commands.checks.bot_has_permissions(embed_links=True)
@@ -247,14 +253,14 @@ class Galtinn(commands.Cog):
 
         await interaction.response.defer()
 
-        self.cursor.execute(
+        db_user = await self.bot.db.fetchrow(
             """
             SELECT * FROM galtinn_users
-            WHERE discord_id = %s
+            WHERE discord_id = $1;
             """,
-            (interaction.user.id,),
+            interaction.user.id,
         )
-        if not self.cursor.fetchone():
+        if not db_user:
             embed = embed_templates.error_warning("Du er ikke registrert med en Galtinnbruker!")
             await interaction.followup.send(embed=embed)
             return
@@ -264,7 +270,7 @@ class Galtinn(commands.Cog):
             "Er du sikker på at du vil slette koblingen mellom Galtinnbrukeren din og Discord?\n\n"
             + "Merk at roller knyttet til Galtinn vil bli fjernet."
         )
-        await interaction.followup.send(embed=embed, view=DeleteView(self.bot, self.cursor), ephemeral=True)
+        await interaction.followup.send(embed=embed, view=DeleteView(self.bot), ephemeral=True)
 
     @commands.has_permissions(manage_guild=True)
     @commands.bot_has_permissions(embed_links=True)
@@ -293,12 +299,13 @@ class Galtinn(commands.Cog):
         role (discord.Role): Discord role object
         """
 
-        self.cursor.execute(
+        await self.bot.db.execute(
             """
             INSERT INTO galtinn_roles
-            VALUES (%s, %s)
+            VALUES ($1, $2);
             """,
-            (role.id, galtinn_org_id),
+            role.id,
+            galtinn_org_id,
         )
         embed = embed_templates.success(
             f"Rollen {role.mention} ble lagt til for organisasjonen med id {galtinn_org_id}"
@@ -316,12 +323,12 @@ class Galtinn(commands.Cog):
         galtinn_org_id (str): Galtinn organization ID
         """
 
-        self.cursor.execute(
+        await self.bot.db.execute(
             """
             DELETE FROM galtinn_roles
-            WHERE discord_role_id = %s
+            WHERE discord_role_id = $1;
             """,
-            (role.id,),
+            role.id,
         )
         embed = embed_templates.success("Rollenkobling fjernet!")
         await ctx.send(embed=embed)
@@ -336,20 +343,19 @@ class Galtinn(commands.Cog):
         ctx (commands.Context): Context object
         """
 
-        self.cursor.execute(
+        db_roles = await self.bot.db.fetch(
             """
             SELECT *
             FROM galtinn_roles;
             """
         )
-        results = self.cursor.fetchall()
-        if not results:
+        if not db_roles:
             embed = embed_templates.error_warning("Ingen roller tilknyttet Galtinn")
             await ctx.send(embed=embed)
             return
 
         roles_formatted = [
-            f"<@&{role_id}> - `{galtinn_org_id}`" for role_id, galtinn_org_id in results
+            f"<@&{row.r['discord_role_id']}> - `{row.r['galtinn_org_id']}`" for row in db_roles
         ]  # TODO: add pagination? requires slash command, hence why I decided against it
 
         embed = discord.Embed(title="Roller tilknyttet Galtinn")
@@ -358,10 +364,9 @@ class Galtinn(commands.Cog):
 
 
 class DeleteView(discord.ui.View):
-    def __init__(self, bot: commands.Bot, cursor):
+    def __init__(self, bot: commands.Bot):
         super().__init__()
         self.bot = bot
-        self.cursor = cursor
 
     @discord.ui.button(label="Ja, slett", style=discord.ButtonStyle.danger, custom_id="delete_yes")
     async def delete_yes(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -370,12 +375,12 @@ class DeleteView(discord.ui.View):
         # Remove Roles
 
         # Delete user from database
-        self.cursor.execute(
+        await self.bot.db.execute(
             """
             DELETE FROM galtinn_users
-            WHERE discord_id = %s
+            WHERE discord_id = $1;
             """,
-            (interaction.user.id,),
+            interaction.user.id,
         )
         embed = embed_templates.success("Du har slettet tilkoblingen til Galtinnbrukeren din!")
         await interaction.message.edit(embed=embed, view=None)
@@ -395,4 +400,6 @@ async def setup(bot: commands.Bot):
     bot (commands.Bot): Bot instance
     """
 
-    await bot.add_cog(Galtinn(bot))
+    cog = Galtinn(bot)
+    await cog.init_db()
+    await bot.add_cog(cog)
