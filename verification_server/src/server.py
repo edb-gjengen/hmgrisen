@@ -30,7 +30,7 @@ db_connection = psycopg2.connect(
     user=os.environ["DATABASE_USER"],
     password=os.environ["DATABASE_PASSWORD"],
 )
-db_connection.autocommit = True
+db_connection.autocommit = True  # Scary
 db_cursor = db_connection.cursor()
 
 
