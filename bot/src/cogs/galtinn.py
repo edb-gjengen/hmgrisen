@@ -246,6 +246,96 @@ class Galtinn(commands.Cog):
         )
         await interaction.followup.send(embed=embed, view=DeleteView(self.bot, self.cursor), ephemeral=True)
 
+    @commands.has_permissions(manage_guild=True)
+    @commands.bot_has_permissions(embed_links=True)
+    @commands.group(name="galtinnrolle", description="Administrer roller knyttet til foreninger i galtinn")
+    async def galtinn_role_group(self, ctx: commands.Context):
+        """
+        Group command for managing Galtinn org roles
+
+        Parameters
+        ----------
+        ctx (commands.Context): Context object
+        """
+
+        if not ctx.invoked_subcommand:
+            await ctx.reply_help(ctx.command)
+
+    @galtinn_role_group.command(name="leggtil", description="Legg til en rolle som tilsvarer en Galtinnforening")
+    async def add_role(self, ctx: commands.Context, galtinn_org_id: str, role: discord.Role):
+        """
+        Add a role that corresponds to a Galtinn organization
+
+        Parameters
+        ----------
+        ctx (commands.Context): Context object
+        galtinn_org_id (str): Galtinn organization ID
+        role (discord.Role): Discord role object
+        """
+
+        self.cursor.execute(
+            """
+            INSERT INTO galtinn_roles
+            VALUES (%s, %s)
+            """,
+            (role.id, galtinn_org_id),
+        )
+        embed = embed_templates.success(
+            f"Rollen {role.mention} ble lagt til for organisasjonen med id {galtinn_org_id}"
+        )
+        await ctx.send(embed=embed)
+
+    @galtinn_role_group.command(name="fjern", description="Fjern en rolle som tilsvarer en Galtinnforening")
+    async def remove_role(self, ctx: commands.Context, role: discord.Role):
+        """
+        Remove a role that corresponds to a Galtinn organization
+
+        Parameters
+        ----------
+        ctx (commands.Context): Context object
+        galtinn_org_id (str): Galtinn organization ID
+        """
+
+        self.cursor.execute(
+            """
+            DELETE FROM galtinn_roles
+            WHERE discord_role_id = %s
+            """,
+            (role.id,),
+        )
+        embed = embed_templates.success("Rollenkobling fjernet!")
+        await ctx.send(embed=embed)
+
+    @galtinn_role_group.command(name="liste", description="Liste over roller knyttet til Galtinnforeninger")
+    async def list_roles(self, ctx: commands.Context):
+        """
+        List all roles that correspond to Galtinn organizations
+
+        Parameters
+        ----------
+        ctx (commands.Context): Context object
+        """
+
+        self.cursor.execute(
+            """
+            SELECT *
+            FROM galtinn_roles;
+            """
+        )
+        results = self.cursor.fetchall()
+        if not results:
+            embed = embed_templates.error_warning("Ingen roller tilknyttet Galtinn")
+            await ctx.send(embed=embed)
+            return
+
+        roles_formatted = [
+            f"<@&{role_id}> - `{galtinn_org_id}`" for role_id, galtinn_org_id in results
+        ]  # TODO: add pagination? requires slash command, hence why I decided against it
+
+        embed = discord.Embed(title="Roller tilknyttet Galtinn")
+        embed.description = "\n".join(roles_formatted)
+        await ctx.send(embed=embed)
+
 
 class DeleteView(discord.ui.View):
     def __init__(self, bot: commands.Bot, cursor):
