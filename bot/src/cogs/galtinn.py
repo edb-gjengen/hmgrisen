@@ -33,27 +33,11 @@ class Galtinn(commands.Cog):
 
         await self.bot.db.execute(
             """
-            CREATE TABLE IF NOT EXISTS galtinn_users (
-                discord_id BIGINT PRIMARY KEY,
-                galtinn_id TEXT NOT NULL
-            );
-            """
-        )
-        await self.bot.db.execute(
-            """
             CREATE TABLE IF NOT EXISTS galtinn_verification (
                 discord_id BIGINT PRIMARY KEY,
                 challenge TEXT NOT NULL,
                 state TEXT NOT NULL,
                 expires TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'utc') + INTERVAL '2 minutes'
-            );
-            """
-        )
-        await self.bot.db.execute(
-            """
-            CREATE TABLE IF NOT EXISTS galtinn_roles (
-                discord_role_id BIGINT PRIMARY KEY,
-                galtinn_org_id TEXT NOT NULL
             );
             """
         )
@@ -90,29 +74,10 @@ class Galtinn(commands.Cog):
                 roles[galtinn_org_id] = role
 
         # Fetch registered users
-        db_users = await self.bot.db.fetch(
-            """
-            SELECT *
-            FROM galtinn_users;
-            """
-        )
-        if not db_users:
-            self.bot.logger.info("No registered users found")
 
-        for db_user in db_users:
-            discord_id, galtinn_id = list(db_user)
+        # Fetch galtinn user info (membership status and orgs)
 
-            user = self.bot.get_user(discord_id)  # Try fetching discord user from cache
-            if not user:
-                user = await self.bot.fetch_user(discord_id)  # Use API call to fetch if not found
-
-            if not user:
-                self.bot.logger.info(f"User with ID {discord_id} not found")
-                continue
-
-            # Fetch galtinn user info (membership status and orgs)
-
-            # Set roles
+        # Set roles
 
     @membership_check.before_loop
     async def before_membership_check(self):
@@ -169,18 +134,6 @@ class Galtinn(commands.Cog):
         await interaction.response.defer()
 
         # Check if user is already registered
-        db_user = await self.bot.db.fetchrow(
-            """
-            SELECT *
-            FROM galtinn_users
-            WHERE discord_id = $1;
-            """,
-            interaction.user.id,
-        )
-        if db_user:
-            embed = embed_templates.error_warning("Du er allerede registrert med en Galtinnbruker!")
-            await interaction.followup.send(embed=embed)
-            return
 
         # Check if user is already pending verification
         verification = await self.bot.db.fetchrow(
@@ -230,6 +183,7 @@ class Galtinn(commands.Cog):
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
+        #  Remove verification after 2 minutes
         await asyncio.sleep(120)
         await self.bot.db.execute(
             """
@@ -252,17 +206,7 @@ class Galtinn(commands.Cog):
 
         await interaction.response.defer()
 
-        db_user = await self.bot.db.fetchrow(
-            """
-            SELECT * FROM galtinn_users
-            WHERE discord_id = $1;
-            """,
-            interaction.user.id,
-        )
-        if not db_user:
-            embed = embed_templates.error_warning("Du er ikke registrert med en Galtinnbruker!")
-            await interaction.followup.send(embed=embed)
-            return
+        # Check if user exists
 
         embed = discord.Embed(title="Fjern bruker", color=discord.Color.yellow())
         embed.description = (
@@ -283,14 +227,8 @@ class DeleteView(discord.ui.View):
 
         # Remove Roles
 
-        # Delete user from database
-        await self.bot.db.execute(
-            """
-            DELETE FROM galtinn_users
-            WHERE discord_id = $1;
-            """,
-            interaction.user.id,
-        )
+        # Delete user connection
+
         embed = embed_templates.success("Du har slettet tilkoblingen til Galtinnbrukeren din!")
         await interaction.message.edit(embed=embed, view=None)
 

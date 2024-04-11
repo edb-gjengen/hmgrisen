@@ -103,14 +103,6 @@ async def callback(request: Request, code: str, state: str):
             user = await r.json()
 
     # Enter user into database
-    await app.state.pool.execute(
-        """
-        INSERT INTO galtinn_users (discord_id, galtinn_id)
-        VALUES ($1, $2)
-        """,
-        discord_id,
-        user["sub"],  # TODO: use UUID?
-    )
 
     # Delete verification entry
     await app.state.pool.execute(
