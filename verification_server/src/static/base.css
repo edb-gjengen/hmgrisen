@@ -1,5 +1,5 @@
 body {
-  background-color: hsl(251, 22%, 10%);
+  background-color: #e5e2d7; /* Betonggrå */
   padding: 2rem;
 
   display: flex;
@@ -7,16 +7,22 @@ body {
   align-items: center;
   justify-content: center;
 
-  color: rgb(228, 228, 228);
-  font-family: "Roboto", sans-serif;
+  color: #161516; /* Svart */
+  font-family: "Roboto", sans-serif; /* Only works if installed but not worth importing */
   text-align: center;
 }
 h1 {
-  color: rgb(255, 255, 255);
+  color: #000000; /* Svart */
 }
 h2 {
   text-decoration: underline;
 }
 p {
   max-width: 80ch;
+}
+
+img,
+picture {
+  max-width: 80vw;
+  max-height: 33vh;
 }

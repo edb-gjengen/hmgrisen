@@ -1,16 +1,28 @@
 <html>
   <head>
-    <title>Success</title>
+    <title>Autentisering fullført!</title>
     <link href="{{ url_for('static', path='/base.css') }}" rel="stylesheet" />
   </head>
 
   <body>
+    <picture>
+      <source
+        srcset="{{ url_for('static', path='/dns_ikon_svart.png') }}"
+        media="(prefers-reduced-motion: reduce)"
+        alt="DNS ikon"
+      />
+      <img
+        src="{{ url_for('static', path='/dansende_gris.gif') }}"
+        alt="DNS-gris som danser"
+      />
+    </picture>
+
     <h1>Hurra!<br />Du har nå koblet Galtinn sammen med Discordbrukeren din</h1>
     <h2>{{ name }}</h2>
     <p>
-      Du skal ha fått tildelt en rolle på Discord! Hvis ikke, vennligst huk tak
-      i din nærmeste EDBer
+      Du skal ha fått tildelt rolle(r) på Discord.<br />
+      Hvis ikke, vennligst huk tak i din nærmeste datanerd (EDB-menneske)!
     </p>
-    <p>Du kan nå lukke dette vinduet</p>
+    <p>Du kan nå lukke dette vinduet.</p>
   </body>
 </html>
