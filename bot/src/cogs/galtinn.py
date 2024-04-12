@@ -167,7 +167,7 @@ class Galtinn(commands.Cog):
         interaction (discord.Interaction): Slash command context object
         """
 
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
 
         # Check if user is already registered
 
@@ -240,7 +240,7 @@ class Galtinn(commands.Cog):
         interaction (discord.Interaction): Slash command context object
         """
 
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
 
         # Check if user exists
 
@@ -266,12 +266,12 @@ class DeleteView(discord.ui.View):
         # Delete user connection
 
         embed = embed_templates.success("Du har slettet tilkoblingen til Galtinnbrukeren din!")
-        await interaction.message.edit(embed=embed, view=None)
+        await interaction.message.edit(embed=embed, view=None, ephemeral=True)
 
     @discord.ui.button(label="Avbryt", style=discord.ButtonStyle.primary, custom_id="delete_no")
     async def delete_no(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed = embed_templates.error_warning("Sletting avbrutt")
-        await interaction.message.edit(embed=embed, view=None)
+        await interaction.message.edit(embed=embed, view=None, ephemeral=True)
 
 
 async def setup(bot: commands.Bot):
