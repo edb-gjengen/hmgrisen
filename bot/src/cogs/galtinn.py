@@ -25,6 +25,7 @@ class Galtinn(commands.Cog):
 
         self.membership_check.start()
         self.verification_cleanup.start()
+        asyncio.create_task(self.listen_db())
 
     async def init_db(self):
         """
@@ -41,6 +42,41 @@ class Galtinn(commands.Cog):
             );
             """
         )
+
+    async def listen_db(self):
+        """
+        Creates a listener for galitnn_auth_complete events from the database and processes them
+        """
+
+        async def process_notification(conn, pid, channel, payload):
+            if channel != "galtinn_auth_complete":
+                return
+
+            self.bot.logger.info("Received galtinn_auth_complete event from database")
+
+            # Surely, no one would ever send a bad payload, right? RIGHT???
+            discord_id, galtinn_id = payload.split(" ")
+
+            # Fetch Discord user
+            user = self.bot.get_user(int(discord_id))
+            if not user:
+                self.bot.logger.info(
+                    f"Could not find discord user with ID {discord_id} in cache. Fetching from API instead..."
+                )
+                user = await self.bot.fetch_user(int(discord_id))
+
+            if not user:
+                self.bot.logger.warning(f"Discord user with ID {payload} not found in cache or API. Ignoring event...")
+                return
+
+            # Fetch roles
+            # Give user roles
+
+        conn = await self.bot.db.acquire()
+        await conn.add_listener("galtinn_auth_complete", process_notification)
+
+        while True:
+            await asyncio.sleep(1)
 
     def cog_unload(self):
         self.bot.logger.info("Unloading cog")

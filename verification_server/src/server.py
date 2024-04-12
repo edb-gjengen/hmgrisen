@@ -113,6 +113,15 @@ async def callback(request: Request, code: str, state: str):
         discord_id,
     )
 
+    # Notify bot that user is verified
+    await app.state.pool.execute(
+        """
+        NOTIFY galtinn_auth_complete, '$1 $2'
+        """,
+        discord_id,
+        user["sub"],  # TODO: use UUID?
+    )
+
     return RedirectResponse(f"/success/{user['preferred_username']}", status_code=303)
 
 
