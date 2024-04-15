@@ -28,6 +28,7 @@ class Bot(commands.Bot):
             "api_url": os.environ.get("GALTINN_API_URL", "http://127.0.0.1:8000"),
             "client_id": os.environ.get("GALTINN_CLIENT_ID"),
             "redirect_uri": os.environ.get("GALTINN_REDIRECT_URI"),
+            "auth_token": os.environ.get("GALTINN_AUTH_TOKEN"),
         }
 
         self.guild_id = os.environ.get("BOT_DEV_GUILD", 1162158668079444199)
