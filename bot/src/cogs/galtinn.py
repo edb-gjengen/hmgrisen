@@ -123,8 +123,6 @@ class Galtinn(commands.Cog):
 
         await self.bot.wait_until_ready()
 
-    galtinn_group = app_commands.Group(name="galtinn", description="Koble Galtinnbrukeren din til Discord")
-
     @tasks.loop(minutes=2)
     async def verification_cleanup(self):
         """
@@ -155,6 +153,8 @@ class Galtinn(commands.Cog):
         """
 
         await self.bot.wait_until_ready()
+
+    galtinn_group = app_commands.Group(name="galtinn", description="Koble Galtinnbrukeren din til Discord")
 
     @app_commands.checks.bot_has_permissions(embed_links=True)
     @galtinn_group.command(name="registrer", description="Koble Galtinnbrukeren din til Discord")
