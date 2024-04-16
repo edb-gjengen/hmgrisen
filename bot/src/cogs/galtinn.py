@@ -3,6 +3,7 @@ import secrets
 import urllib.parse
 from datetime import datetime
 
+import aiohttp
 import discord
 from cogs.utils import embed_templates
 from cogs.utils import misc_utils
@@ -82,6 +83,39 @@ class Galtinn(commands.Cog):
         self.bot.logger.info("Unloading cog")
         self.membership_check.cancel()
         self.verification_cleanup.cancel()
+
+    async def fetch_galtinn_user(self, discord_id: int) -> dict | None:
+        """
+        Fetch a Galtinn user based on their Discord ID
+
+        Parameters
+        ----------
+        discord_id (int): Discord user ID
+
+        Reuturns
+        dict | None: Galtinn user. None if not found
+        """
+
+        params = {"discord_id": discord_id, "format": "json"}
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"{self.bot.galtinn['api_url']}/api/users/{urllib.parse.urlencode(params)}"  # TODO: add auth token
+            ) as r:
+                if r.status != 200:
+                    self.bot.logger.warning(
+                        f"Failed to fetch galtinn user info for {discord_id}. Status: {r.status}. {await r.text()}"
+                    )
+                    return None
+
+                galtinn_user = await r.json()
+                if galtinn_user["count"] == 0:
+                    self.bot.logger.info(f"No galtinn user found for {discord_id}")
+                    return None
+                elif galtinn_user["count"] > 1:  # Surely, this will never happen :clueless:
+                    self.bot.logger.warning(f"HALLO DET ER FLERE GALTINNBRUKERE PER DISCORDBRUKER. KRISE {discord_id}")
+                    return None
+
+            return galtinn_user["results"][0]
 
     @tasks.loop(time=misc_utils.MIDNIGHT)
     async def membership_check(self):
