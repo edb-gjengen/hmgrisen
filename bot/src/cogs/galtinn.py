@@ -117,6 +117,37 @@ class Galtinn(commands.Cog):
 
             return galtinn_user["results"][0]
 
+    async def get_roles(self, galtinn_user: dict) -> tuple[set, set]:
+        """
+        Get which roles to add and which to remove based on the user's Galtinn membership status
+
+        Parameters
+        ----------
+        galtinn_user (dict): Galtinn user object
+
+        Reuturns
+        ----------
+        tuple[set, set]: Roles to add, roles to remove
+        """
+
+        # Fetch roles
+        roles = set()
+
+        roles_to_add = set()
+        if galtinn_user["is_member"]:
+            # roles_to_add.add(member)
+            pass
+        if galtinn_user["is_active"]:
+            # roles_to_add.add(active)
+            pass
+
+        for org in galtinn_user["organizations"]:
+            roles_to_add.add(org)
+
+        roles_to_remove = roles - roles_to_add
+
+        return roles_to_add, roles_to_remove
+
     @tasks.loop(time=misc_utils.MIDNIGHT)
     async def membership_check(self):
         """
