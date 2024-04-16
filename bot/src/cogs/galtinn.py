@@ -181,31 +181,25 @@ class Galtinn(commands.Cog):
         Checks all registered user's membership status and assigns roles based on the status
         """
 
-        # Fetch galtinn organization roles
-        roles = {}
-        db_roles = await self.bot.db.fetch(
-            """
-            SELECT *
-            FROM galtinn_roles;
-            """
-        )
-        if db_roles:
-            for role_id, galtinn_org_id in list(db_roles):
-                role = self.bot.get_role(role_id)
-                if not role:
-                    role = await self.bot.fetch_role(role_id)
+        guild = self.bot.get_guild(self.bot.guild_id)
+        if not guild:
+            guild = await self.bot.fetch_guild(self.bot.guild_id)
 
-                if not role:
-                    self.bot.logger.info(f"Role with ID {role_id} not found")
-                    continue
-
-                roles[galtinn_org_id] = role
+        if not guild:
+            self.bot.logger.error("Failed to fetch guild")
+            return
 
         # Fetch registered users
+        for discord_user in guild.members:
+            await asyncio.sleep(0.5)  # Let's not burn down chateau neuf
+            galtinn_user = await self.fetch_galtinn_user(discord_user.id)
+            if not galtinn_user:
+                self.bot.logger.info(f"No galtinn user found for {discord_user.id}. Skipping...")
+                continue
 
-        # Fetch galtinn user info (membership status and orgs)
-
-        # Set roles
+            # Assign roles based on membership status
+            roles_to_add, roles_to_remove = await self.get_roles(galtinn_user)
+            await self.add_remove_roles(discord_user, roles_to_add, roles_to_remove)
 
     @membership_check.before_loop
     async def before_membership_check(self):
@@ -262,6 +256,11 @@ class Galtinn(commands.Cog):
         await interaction.response.defer(ephemeral=True)
 
         # Check if user is already registered
+        galtinn_user = await self.fetch_galtinn_user(interaction.user.id)
+        if not galtinn_user:
+            embed = embed_templates.error_warning("Du er allerede registrert!")
+            await interaction.followup.send(embed=embed)
+            return
 
         # Check if user is already pending verification
         verification = await self.bot.db.fetchrow(
@@ -335,6 +334,11 @@ class Galtinn(commands.Cog):
         await interaction.response.defer(ephemeral=True)
 
         # Check if user exists
+        galtinn_user = await self.fetch_galtinn_user(interaction.user.id)
+        if not galtinn_user:
+            embed = embed_templates.error_warning("Du er ikke registrert!")
+            await interaction.followup.send(embed=embed)
+            return
 
         embed = discord.Embed(title="Fjern bruker", color=discord.Color.yellow())
         embed.description = (
@@ -354,6 +358,9 @@ class DeleteView(discord.ui.View):
         self.bot.logger.info(f"Deleting user {interaction.user.id}")
 
         # Remove Roles
+        galtinn_user = await self.fetch_galtinn_user(interaction.user.id)
+        _, roles_to_remove = await self.get_roles(galtinn_user)
+        await self.add_remove_roles(interaction.user, set(), roles_to_remove)
 
         # Delete user connection
 
