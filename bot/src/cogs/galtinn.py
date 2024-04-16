@@ -148,6 +148,33 @@ class Galtinn(commands.Cog):
 
         return roles_to_add, roles_to_remove
 
+    async def add_remove_roles(self, user: discord.Member, roles_to_add: set, roles_to_remove: set) -> bool:
+        """
+        Attempts to assign and remove roles to/from a user.
+
+        Parameters
+        ----------
+        user (discord.Member): Discord user
+        roles_to_add (set): Roles to assign
+        roles_to_remove (set): Roles to remove
+
+        Reuturns
+        ----------
+        bool: True if successful, False otherwise
+        """
+
+        try:
+            await user.add_roles(*roles_to_add, reason="Membership check")
+            await user.remove_roles(*roles_to_remove, reason="Membership check")
+        except discord.Forbidden:
+            self.bot.logger.error(f"Failed to assign roles to user {user.id}. Forbidden")
+            return False
+        except discord.HTTPException as e:
+            self.bot.logger.error(f"Failed to assign roles to user {user.id}. {e}")
+            return False
+
+        return True
+
     @tasks.loop(time=misc_utils.MIDNIGHT)
     async def membership_check(self):
         """
