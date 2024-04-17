@@ -96,10 +96,11 @@ class Galtinn(commands.Cog):
         dict | None: Galtinn user. None if not found
         """
 
-        params = {"discord_id": discord_id, "format": "json"}
         async with aiohttp.ClientSession() as session:
+            params = urllib.parse.urlencode({"discord_id": discord_id, "format": "json"})
             async with session.get(
-                f"{self.bot.galtinn['api_url']}/api/users/{urllib.parse.urlencode(params)}"  # TODO: add auth token
+                f"{self.bot.galtinn['api_url']}/api/users/{params}",
+                headers={"Authorization": f"Token {self.bot.galtinn['auth_token']}"},
             ) as r:
                 if r.status != 200:
                     self.bot.logger.warning(
