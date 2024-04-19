@@ -30,6 +30,10 @@ class Bot(commands.Bot):
             "redirect_uri": os.environ.get("GALTINN_REDIRECT_URI"),
             "auth_token": os.environ.get("GALTINN_AUTH_TOKEN"),
         }
+        self.galtinn_roles = {
+            "member": os.environ.get("GALTINN_MEMBER_ROLE"),
+            "volunteer": os.environ.get("GALTINN_VOLUNTEER_ROLE"),
+        }
 
         self.guild_id = os.environ.get("BOT_DEV_GUILD", 1162158668079444199)
 
