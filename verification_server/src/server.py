@@ -21,6 +21,7 @@ load_dotenv()
 GALTINN_API_URL = os.environ["GALTINN_API_URL"]
 GALTIINN_CLIENT_ID = os.environ["GALTINN_CLIENT_ID"]
 GALTINN_REDIRECT_URI = os.environ["GALTINN_REDIRECT_URI"]
+GALTINN_AUTH_TOKEN = os.environ["GALTINN_AUTH_TOKEN"]
 
 
 @app.on_event("startup")
@@ -84,7 +85,6 @@ async def callback(request: Request, code: str, state: str):
                     },
                 )
             token_data = await r.json()
-            print(token_data)
 
     # Get user info from galtinn
     async with aiohttp.ClientSession() as session:
@@ -102,7 +102,21 @@ async def callback(request: Request, code: str, state: str):
                 )
             user = await r.json()
 
-    # Enter user into database
+    # Enter discord user into galtinn
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            f"{GALTINN_API_URL}/discordprofiles/",
+            json={"discord_id": discord_id, "user": user["sub"]},
+            headers={"Authorization": f"Token {GALTINN_AUTH_TOKEN}"},
+        ) as r:
+            if r.status != 200 and r.status != 201:
+                return templates.TemplateResponse(
+                    "error.html",
+                    {
+                        "request": request,
+                        "message": "Klarte ikke å skrive discord id i Galtinn. Kontakt din nærmeste EDB'er",
+                    },
+                )
 
     # Delete verification entry
     await app.state.pool.execute(
