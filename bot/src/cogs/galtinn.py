@@ -518,46 +518,48 @@ class Galtinn(commands.Cog):
         interaction (discord.Interaction): Slash command context object
         """
 
+        # TODO: add confirmation button
+        # I could not get it to consistently work
+        # because discord interactions are confusing as hell
+
         await interaction.response.defer(ephemeral=True)
 
         # Check if user exists
-        galtinn_user = await self.fetch_galtinn_user(interaction.user.id)
-        if not galtinn_user:
+        galtinn_users = await self.fetch_galtinn_users(discord_id=interaction.user.id)
+        # API guarantees that there is only one or zero results so this is safe
+        if galtinn_users.count == 0:
             embed = embed_templates.error_warning("Du er ikke registrert!")
             await interaction.followup.send(embed=embed)
             return
 
-        embed = discord.Embed(title="Fjern bruker", color=discord.Color.yellow())
-        embed.description = (
-            "Er du sikker på at du vil slette koblingen mellom Galtinnbrukeren din og Discord?\n\n"
-            + "Merk at roller knyttet til Galtinn vil bli fjernet."
-        )
-        await interaction.followup.send(embed=embed, view=DeleteView(self.bot), ephemeral=True)
-
-
-class DeleteView(discord.ui.View):
-    def __init__(self, bot: commands.Bot):
-        super().__init__()
-        self.bot = bot
-
-    @discord.ui.button(label="Ja, slett", style=discord.ButtonStyle.danger, custom_id="delete_yes")
-    async def delete_yes(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.bot.logger.info(f"Deleting user {interaction.user.id}")
 
-        # Remove Roles
-        galtinn_user = await self.fetch_galtinn_user(interaction.user.id)
-        _, roles_to_remove = await self.get_roles(galtinn_user)
-        await self.add_remove_roles(interaction.user, set(), roles_to_remove)
+        galtinn_user = galtinn_users.results[0]
 
-        # Delete user connection
+        roles_to_add, roles_to_remove = await self.get_user_galtinn_roles(galtinn_user)
+        all_roles = roles_to_add.union(roles_to_remove)
+        roles_changed = await self.update_roles(interaction.user, set(), all_roles)
 
-        embed = embed_templates.success("Du har slettet tilkoblingen til Galtinnbrukeren din!")
-        await interaction.message.edit(embed=embed, view=None, ephemeral=True)
+        async with aiohttp.ClientSession() as session:
+            async with session.delete(
+                f"{self.bot.galtinn['api_url']}/discordprofiles/{galtinn_user.id}/",
+                headers={"Authorization": f"Token {self.bot.galtinn['auth_token']}"},
+            ) as r:
+                if r.status != 200 and r.status != 202 and r.status != 204:
+                    self.bot.logger.error(f"Failed to delete discord profile. Status: {r.status}.")
+                    embed = embed_templates.error_warning(
+                        "Klarte ikke å slette tilkoblingen til Galtinnbrukeren din. Dette bør du rapportere til EDB!"
+                    )
+                    await interaction.followup.send(embed=embed, ephemeral=True)
+                    return
 
-    @discord.ui.button(label="Avbryt", style=discord.ButtonStyle.primary, custom_id="delete_no")
-    async def delete_no(self, interaction: discord.Interaction, button: discord.ui.Button):
-        embed = embed_templates.error_warning("Sletting avbrutt")
-        await interaction.message.edit(embed=embed, view=None, ephemeral=True)
+        role_warning = (
+            "\n\nVi klarte dessverre ikke å slette rollene dine derimot. Kontakt en serveradmin"
+            if not roles_changed
+            else ""
+        )
+        embed = embed_templates.success(f"Du har slettet tilkoblingen til Galtinnbrukeren din!{role_warning}")
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 async def setup(bot: commands.Bot):
