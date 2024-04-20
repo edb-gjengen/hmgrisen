@@ -66,22 +66,30 @@ class Galtinn(commands.Cog):
             self.bot.logger.info("Received galtinn_auth_complete event from database")
 
             # Surely, no one would ever send a bad payload, right? RIGHT???
-            discord_id, galtinn_id = payload.split(" ")
+            discord_user_id, galtinn_user_id = payload.split(" ")
 
-            # Fetch Discord user
-            user = self.bot.get_user(int(discord_id))
-            if not user:
-                self.bot.logger.info(
-                    f"Could not find discord user with ID {discord_id} in cache. Fetching from API instead..."
+            # Fetch Galtinn user
+            if not (
+                galtinn_users := await self.fetch_galtinn_users(
+                    galtinn_user_id=int(galtinn_user_id), discord_id=int(discord_user_id)
                 )
-                user = await self.bot.fetch_user(int(discord_id))
-
-            if not user:
-                self.bot.logger.warning(f"Discord user with ID {payload} not found in cache or API. Ignoring event...")
+            ):
+                self.bot.logger.error(f"Failed to fetch user with ID {discord_user_id}. Not found")
                 return
 
-            # Fetch roles
-            # Give user roles
+            galtinn_user = galtinn_users.results[0]
+
+            # Fetch Discord user
+            if not (guild := await discord_utils.get_discord_guild(self.bot, self.bot.guild_id)):
+                self.bot.logger.error("Failed to fetch guild. Can't convert role ids to objects. Roles not applied")
+                return
+            if not (discord_user := await discord_utils.get_guild_member(self.bot, guild, discord_user_id)):
+                self.bot.logger.error(f"Failed to fetch member with ID {discord_user_id}. Not found")
+                return
+
+            # Fetch and give roles
+            roles_to_add, roles_to_remove = await self.get_user_galtinn_roles(galtinn_user)
+            await self.update_roles(discord_user, roles_to_add, roles_to_remove)
 
         conn = await self.bot.db.acquire()
         await conn.add_listener("galtinn_auth_complete", process_notification)
