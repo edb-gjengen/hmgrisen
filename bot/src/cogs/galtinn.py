@@ -348,25 +348,44 @@ class Galtinn(commands.Cog):
         Checks all registered user's membership status and assigns roles based on the status
         """
 
-        guild = self.bot.get_guild(self.bot.guild_id)
-        if not guild:
-            guild = await self.bot.fetch_guild(self.bot.guild_id)
+        self.bot.logger.info("Checking membership status for all users")
 
-        if not guild:
-            self.bot.logger.error("Failed to fetch guild")
+        if not (guild := await discord_utils.get_discord_guild(self.bot, self.bot.guild_id)):
+            self.bot.logger.error("Failed to fetch guild. Can't convert role ids to objects. Roles not applied")
             return
 
-        # Fetch registered users
-        for discord_user in guild.members:
-            await asyncio.sleep(0.5)  # Let's not burn down chateau neuf
-            galtinn_user = await self.fetch_galtinn_user(discord_user.id)
-            if not galtinn_user:
-                self.bot.logger.info(f"No galtinn user found for {discord_user.id}. Skipping...")
+        # Fetch all galtinn users with a discord profile
+        galtinn_users = await self.fetch_galtinn_users()
+        if not galtinn_users:
+            self.bot.logger.error("Failed to fetch Galtinn users or no users found. Aborting membership check...")
+            return
+
+        for galtinn_user in galtinn_users.results:
+            self.bot.logger.info(
+                f"Checking membership status for galtinn user {galtinn_user.id}."
+                + f" Discord ID: {galtinn_user.discord_profile.discord_id}"
+            )
+            # Fetch Discord user
+            if not (
+                discord_user := await discord_utils.get_guild_member(
+                    self.bot, guild, galtinn_user.discord_profile.discord_id
+                )
+            ):
+                self.bot.logger.error(
+                    f"Failed to fetch member with ID {galtinn_user.discord_profile.discord_id}. Not found"
+                )
                 continue
 
-            # Assign roles based on membership status
-            roles_to_add, roles_to_remove = await self.get_roles(galtinn_user)
-            await self.add_remove_roles(discord_user, roles_to_add, roles_to_remove)
+            roles_to_add, roles_to_remove = await self.get_user_galtinn_roles(galtinn_user)
+            roles_changed = await self.update_roles(discord_user, roles_to_add, roles_to_remove)
+            if roles_changed:
+                self.bot.logger.info(f"Roles updated for user {discord_user.id}")
+            else:
+                self.bot.logger.warning(f"Failed to update roles for user {discord_user.id}")
+
+            await asyncio.sleep(0.5)
+
+        self.bot.logger.info("Membership check completed")
 
     @membership_check.before_loop
     async def before_membership_check(self):
