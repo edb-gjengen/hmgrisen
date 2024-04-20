@@ -1,6 +1,7 @@
 import os
 
 import discord
+from discord.ext import commands
 
 from .misc_utils import Paginator
 
@@ -29,6 +30,95 @@ async def send_as_txt_file(interaction: discord.Interaction, content: str, file_
         os.remove(file_path)
     except OSError:
         pass
+
+
+async def get_discord_guild(bot: commands.Bot, id: int) -> discord.Guild | None:
+    """
+    Helper function that tries fetching a discord object from the cache. If not found, fetches from the API
+
+    Parameters
+    ----------
+    bot (commands.Bot): Bot instance
+    id (int): ID of the object
+
+    Returns
+    ----------
+    (discord.Guild | None): Discord object. None if not found or failed to fetch from API
+    """
+
+    guild = bot.get_guild(id)
+    if not guild:
+        bot.logger.info(f"failed to fetch guild {id} from cache. Making API call...")
+        try:
+            guild = await bot.fetch_guild(id)
+        except discord.errors.NotFound:
+            bot.logger.warning(f"Failed to fetch guild with ID {id}. Not found")
+        except discord.errors.Forbidden:
+            bot.logger.warning(f"Failed to fetch guild with ID {id}. Forbidden")
+        except discord.errors.HTTPException:
+            bot.logger.warning(f"Failed to fetch guild with ID {id}. HTTPException")
+
+    return guild
+
+
+async def get_guild_member(bot: commands.Bot, guild: discord.Guild, user_id: int) -> discord.Member | None:
+    """
+    Helper function that tries fetching a discord object from the cache. If not found, fetches from the API
+
+    Parameters
+    ----------
+    bot (commands.Bot): Bot instance
+    guild (discord.Guild): The discord guild to fetch the member from
+    user_id (int): ID of the user
+
+    Returns
+    ----------
+    (discord.Member | None): Discord object. None if not found or failed to fetch from API
+    """
+
+    user = guild.get_member(user_id)
+    if not user:
+        bot.logger.info(f"failed to fetch user {user_id} from cache. Making API call...")
+        try:
+            user = await guild.fetch_member(user_id)
+        except discord.errors.NotFound:
+            bot.logger.warning(f"Failed to fetch member with ID {user_id}. Not found")
+        except discord.errors.Forbidden:
+            print("forbidden")
+            bot.logger.warning(f"Failed to fetch member with ID {user_id}. Forbidden")
+        except discord.errors.HTTPException:
+            print("httpexception")
+            bot.logger.warning(f"Failed to fetch member with ID {user_id}. HTTPException")
+
+    return user
+
+
+async def get_guild_role(bot: commands.Bot, guild: discord.Guild, role_id: int) -> discord.Role | None:
+    """
+    Helper function that tries fetching a discord object from the cache. If not found, fetches from the API
+
+    Parameters
+    ----------
+    bot (commands.Bot): Bot instance
+    guild (discord.Guild): The discord guild to fetch the role from
+    role_id (int): ID of the role
+
+    Returns
+    ----------
+    (discord.Role | None): Discord object. None if not found or failed to fetch from API
+    """
+
+    role = guild.get_role(role_id)
+    if not role:
+        bot.logger.info(f"failed to fetch role {role_id} from cache. Making API call...")
+        try:
+            roles = await guild.fetch_roles()
+        except discord.errors.HTTPException:
+            bot.logger.warning(f"Failed to fetch role with ID {role_id}. HTTPException")
+        else:
+            role = discord.utils.get(roles, id=role_id)
+
+    return role
 
 
 class ScrollerButton(discord.ui.Button):
