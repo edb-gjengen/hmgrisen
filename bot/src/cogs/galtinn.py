@@ -5,11 +5,16 @@ from datetime import datetime
 
 import aiohttp
 import discord
+from cogs.utils import discord_utils
 from cogs.utils import embed_templates
 from cogs.utils import misc_utils
 from discord import app_commands
 from discord.ext import commands
 from discord.ext import tasks
+from models import DiscordProfiles
+from models import DuskenUser
+from models import Groups
+from models import Users
 
 
 class Galtinn(commands.Cog):
@@ -27,6 +32,11 @@ class Galtinn(commands.Cog):
         self.membership_check.start()
         self.verification_cleanup.start()
         asyncio.create_task(self.listen_db())
+
+    def cog_unload(self):
+        self.bot.logger.info("Unloading cog")
+        self.membership_check.cancel()
+        self.verification_cleanup.cancel()
 
     async def init_db(self):
         """
@@ -79,90 +89,238 @@ class Galtinn(commands.Cog):
         while True:
             await asyncio.sleep(1)
 
-    def cog_unload(self):
-        self.bot.logger.info("Unloading cog")
-        self.membership_check.cancel()
-        self.verification_cleanup.cancel()
-
-    async def fetch_galtinn_user(self, discord_id: int) -> dict | None:
+    async def fetch_galtinn_users(
+        self, galtinn_user_id: int | None = None, discord_id: int | None = None, page: int = 1
+    ) -> Users | None:
         """
-        Fetch a Galtinn user based on their Discord ID
+        Attempts to fetch user(s) from Galtinn. If no parameters are given, all users are fetched
+        """
 
-        Parameters
+        async def fetch_page(url: str):
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    url,
+                    headers={"Authorization": f"Token {self.bot.galtinn['auth_token']}"},
+                ) as r:
+                    if r.status == 404:
+                        self.bot.logger.info(f"No users found in Galtinn with the given parameters {params}")
+                        return None
+                    if r.status != 200:
+                        self.bot.logger.warning(f"Failed to fetch galtinn user(s). Status: {r.status}")
+                        return None
+
+                    data = await r.json()
+                    users = Users(**data)
+
+                    return users
+
+        params = {"no_discord_id": False, "page": page, "format": "json"}
+        if discord_id:
+            params["discord_profile__discord_id"] = discord_id
+        if galtinn_user_id:
+            params["id"] = galtinn_user_id
+
+        initial_url = f"{self.bot.galtinn['api_url']}/users/?{urllib.parse.urlencode(params)}"
+        galtinn_users = await fetch_page(initial_url)
+        if not galtinn_users:
+            return None
+
+        if galtinn_users.count == 0:
+            return galtinn_users
+
+        # Due to pagination we have to do this hacky workaround.
+        # I do not like the fact that we're modifying a return object like this just to satisfy the return type
+        # and it should probably be changed in the future.
+        # I do, however, not have the time to find a better way right now
+        all_galtinn_users = galtinn_users.copy()
+        while galtinn_users.next:
+            self.bot.logger.info(f"Fetching next page. {galtinn_users.next}")
+            galtinn_users = await fetch_page(galtinn_users.next)
+            if not galtinn_users or galtinn_users.count == 0:
+                break
+            all_galtinn_users.results.extend(galtinn_users.results)
+            all_galtinn_users.count += galtinn_users.count
+
+        # This doesn't make any difference but feels cleaner I guess
+        all_galtinn_users.next = None
+        all_galtinn_users.previous = None
+
+        return all_galtinn_users
+
+    async def fetch_galtinn_discordprofiles(
+        self, galtinn_user_id: int | None = None, discord_id: int | None = None, page: int = 1
+    ) -> DiscordProfiles | None:
+        """
+        Attempts to fetch discord profile(s) from Galtinn. If no parameters are given, all profiles are fetched
+        """
+
+        async def fetch_page(url: str):
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    url,
+                    headers={"Authorization": f"Token {self.bot.galtinn['auth_token']}"},
+                ) as r:
+                    if r.status == 404:
+                        self.bot.logger.info(f"No discord profiles found in Galtinn with the given parameters {params}")
+                        return None
+                    if r.status != 200:
+                        self.bot.logger.warning(f"Failed to fetch galtinn user(s). Status: {r.status}")
+                        return None
+
+                    data = await r.json()
+                    discord_profiles = DiscordProfiles(**data)
+
+                    return discord_profiles
+
+        params = {"page": page, "format": "json"}
+        if discord_id:
+            params["discord_id"] = discord_id
+        if galtinn_user_id:
+            params["user"] = galtinn_user_id
+
+        initial_url = f"{self.bot.galtinn['api_url']}/discordprofiles/?{urllib.parse.urlencode(params)}"
+
+        discord_profiles = await fetch_page(initial_url)
+        if not discord_profiles:
+            return None
+
+        if discord_profiles.count == 0:
+            return discord_profiles
+
+        # Due to pagination we have to do this hacky workaround.
+        # I do not like the fact that we're modifying a return object like this just to satisfy the return type
+        # and it should probably be changed in the future.
+        # I do, however, not have the time to find a better way right now
+        all_discord_profiles = discord_profiles.copy()
+        while discord_profiles.next:
+            discord_profiles = await fetch_page(discord_profiles.next)
+            if not discord_profiles or discord_profiles.count == 0:
+                break
+            all_discord_profiles.results.extend(discord_profiles.results)
+            all_discord_profiles.count += discord_profiles.count
+
+        # This doesn't make any difference but feels cleaner I guess
+        all_discord_profiles.next = None
+        all_discord_profiles.previous = None
+
+        return all_discord_profiles
+
+    async def fetch_all_galtinn_roles(self) -> set[int] | None:
+        """
+        Fetch all roles connected to Galtinn groups
+
+        Returns
         ----------
-        discord_id (int): Discord user ID
-
-        Reuturns
-        dict | None: Galtinn user. None if not found
+        set(int) | None: Set of role ids or None if failed
         """
 
-        async with aiohttp.ClientSession() as session:
-            params = urllib.parse.urlencode({"discord_id": discord_id, "format": "json"})
-            async with session.get(
-                f"{self.bot.galtinn['api_url']}/api/users/{params}",
-                headers={"Authorization": f"Token {self.bot.galtinn['auth_token']}"},
-            ) as r:
-                if r.status != 200:
-                    self.bot.logger.warning(
-                        f"Failed to fetch galtinn user info for {discord_id}. Status: {r.status}. {await r.text()}"
-                    )
-                    return None
+        async def fetch_page(url: str):
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    url,
+                    headers={"Authorization": f"Token {self.bot.galtinn['auth_token']}"},
+                ) as r:
+                    if r.status == 404:
+                        self.bot.logger.info("No groups found in Galtinn")
+                        return None
+                    if r.status != 200:
+                        self.bot.logger.warning(f"Failed to fetch groups from Galtinn. Status: {r.status}")
+                        return None
 
-                galtinn_user = await r.json()
-                if galtinn_user["count"] == 0:
-                    self.bot.logger.info(f"No galtinn user found for {discord_id}")
-                    return None
-                elif galtinn_user["count"] > 1:  # Surely, this will never happen :clueless:
-                    self.bot.logger.warning(f"HALLO DET ER FLERE GALTINNBRUKERE PER DISCORDBRUKER. KRISE {discord_id}")
-                    return None
+                    data = await r.json()
+                    groups = Groups(**data)
 
-            return galtinn_user["results"][0]
+                    return groups
 
-    async def get_roles(self, galtinn_user: dict) -> tuple[set, set]:
+        all_roles = {self.bot.galtinn_roles["volunteer"], self.bot.galtinn_roles["member"]}
+
+        params = {"no_discord_roles": False, "format": "json"}
+        initial_url = f"{self.bot.galtinn['api_url']}/groups/?{urllib.parse.urlencode(params)}"
+
+        groups = await fetch_page(initial_url)
+        if not groups or groups.count == 0:
+            return None
+
+        for group in groups.results:
+            for discord_role in group.profile.discord_roles:
+                all_roles.add(discord_role.discord_id)
+
+        # Due to pagination we have to do this hacky workaround.
+        while groups.next:
+            groups = await fetch_page(groups.next)
+            if not groups or groups.count == 0:
+                break
+            for group in groups.results:
+                for discord_role in group.profile.discord_roles:
+                    all_roles.add(discord_role.discord_id)
+
+        return all_roles
+
+    async def get_user_galtinn_roles(self, galtinn_user: DuskenUser) -> tuple[set, set]:
         """
         Get which roles to add and which to remove based on the user's Galtinn membership status
 
         Parameters
         ----------
-        galtinn_user (dict): Galtinn user object
+        galtinn_user (DuskenUser): Galtinn user object
 
         Reuturns
         ----------
-        tuple[set, set]: Roles to add, roles to remove
+        tuple[set[int], set[int]]: Role ids to add, role ids to remove
         """
 
-        # Fetch roles
-        roles = set()
+        # Make sure we have the latest roles
+        all_roles = await self.fetch_all_galtinn_roles()
 
         roles_to_add = set()
-        if galtinn_user["is_member"]:
-            # roles_to_add.add(member)
-            pass
-        if galtinn_user["is_active"]:
-            # roles_to_add.add(active)
-            pass
+        roles_to_remove = set()
 
-        for org in galtinn_user["organizations"]:
-            roles_to_add.add(org)
+        if galtinn_user.is_volunteer:
+            roles_to_add.add(self.bot.galtinn_roles["volunteer"])
+        if galtinn_user.is_member:
+            roles_to_add.add(self.bot.galtinn_roles["member"])
 
-        roles_to_remove = roles - roles_to_add
+        if not galtinn_user.groups:
+            return roles_to_add, roles_to_remove
+
+        for group in galtinn_user.groups:
+            # TODO: add a filter for this in the API?
+            if not group.profile or not group.profile.discord_roles:
+                continue
+
+            for discord_role in group.profile.discord_roles:
+                roles_to_add.add(discord_role.discord_id)
+
+        roles_to_remove = all_roles - roles_to_add
 
         return roles_to_add, roles_to_remove
 
-    async def add_remove_roles(self, user: discord.Member, roles_to_add: set, roles_to_remove: set) -> bool:
+    async def update_roles(self, user: discord.Member, roles_to_add: set, roles_to_remove: set) -> bool:
         """
         Attempts to assign and remove roles to/from a user.
 
         Parameters
         ----------
         user (discord.Member): Discord user
-        roles_to_add (set): Roles to assign
-        roles_to_remove (set): Roles to remove
+        roles_to_add (set): Role ids to assign
+        roles_to_remove (set): Role ids to remove
 
         Reuturns
         ----------
         bool: True if successful, False otherwise
         """
+
+        if not (guild := await discord_utils.get_discord_guild(self.bot, self.bot.guild_id)):
+            self.bot.logger.warning("Failed to fetch guild. Can't convert role ids to objects. Roles not applied")
+            return False
+
+        roles_to_add = {await discord_utils.get_guild_role(self.bot, guild, role_id) for role_id in roles_to_add}
+        roles_to_remove = {await discord_utils.get_guild_role(self.bot, guild, role_id) for role_id in roles_to_remove}
+
+        # Filter out None values
+        # This should probably be integrated into the above code
+        roles_to_add = set(filter(None, roles_to_add))
+        roles_to_remove = set(filter(None, roles_to_remove))
 
         try:
             await user.add_roles(*roles_to_add, reason="Membership check")
