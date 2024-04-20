@@ -31,8 +31,8 @@ class Bot(commands.Bot):
             "auth_token": os.environ.get("GALTINN_AUTH_TOKEN"),
         }
         self.galtinn_roles = {
-            "member": os.environ.get("GALTINN_MEMBER_ROLE"),
-            "volunteer": os.environ.get("GALTINN_VOLUNTEER_ROLE"),
+            "member": os.environ.get("BOT_GALTINN_ROLE_MEMBER"),
+            "volunteer": os.environ.get("BOT_GALTINN_ROLE_VOLUNTEER"),
         }
 
         self.guild_id = os.environ.get("BOT_DEV_GUILD", 1162158668079444199)
