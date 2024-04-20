@@ -442,8 +442,9 @@ class Galtinn(commands.Cog):
         await interaction.response.defer(ephemeral=True)
 
         # Check if user is already registered
-        galtinn_user = await self.fetch_galtinn_user(interaction.user.id)
-        if not galtinn_user:
+        discord_profile = await self.fetch_galtinn_discordprofiles(discord_id=interaction.user.id)
+        # API guarantees that there is only one or zero results so this is safe
+        if discord_profile.count == 1:
             embed = embed_templates.error_warning("Du er allerede registrert!")
             await interaction.followup.send(embed=embed)
             return
