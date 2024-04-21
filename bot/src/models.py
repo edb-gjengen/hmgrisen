@@ -28,8 +28,8 @@ class Group(BaseModel):
 class Membership(BaseModel):
     id: int
     start_date: datetime
-    end_date: datetime
-    order: int
+    end_date: Optional[datetime]
+    order: Optional[int]
     user: int
     membership_type: str
     is_valid: bool
