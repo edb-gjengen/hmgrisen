@@ -35,6 +35,15 @@ class Membership(BaseModel):
     is_valid: bool
 
 
+class ActiveMemberCard(BaseModel):
+    card_number: int
+    registered: datetime
+    is_active: bool
+    user: int
+    created: datetime
+    orders: list
+
+
 class UserDiscordProfile(BaseModel):
     id: int
     discord_id: int
@@ -51,7 +60,7 @@ class DuskenUser(BaseModel):
     date_of_birth: Optional[datetime]
     legacy_id: Optional[int]
     place_of_study: Optional[int]
-    active_member_card: Optional[int]
+    active_member_card: Optional[ActiveMemberCard]
     is_volunteer: bool
     is_member: bool
     last_membership: Optional[Membership]
