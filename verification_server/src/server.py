@@ -60,7 +60,7 @@ async def callback(request: Request, code: str, state: str):
             "error.html",
             {
                 "request": request,
-                "message": "Denne lenken er utløpt eller ugyldig! Prøv igjen fra start",
+                "message": "Denne lenken er utløpt eller ugyldig! Prøv igjen fra start!",
             },
         )
 
@@ -81,7 +81,7 @@ async def callback(request: Request, code: str, state: str):
                     "error.html",
                     {
                         "request": request,
-                        "message": "Kunne ikke hente hente nøkkel fra Galtinn. Kontakt din nærmeste EDB'er",
+                        "message": "Kunne ikke hente hente autentiseringsnøkkel fra Galtinn!",
                     },
                 )
             token_data = await r.json()
@@ -97,7 +97,7 @@ async def callback(request: Request, code: str, state: str):
                     "error.html",
                     {
                         "request": request,
-                        "message": "Kunne ikke hente hente brukerinfo fra Galtinn. Kontakt din nærmeste EDB'er",
+                        "message": "Kunne ikke hente hente brukerinfo fra Galtinn!",
                     },
                 )
             user = await r.json()
@@ -114,7 +114,7 @@ async def callback(request: Request, code: str, state: str):
                     "error.html",
                     {
                         "request": request,
-                        "message": "Klarte ikke å skrive discord id i Galtinn. Kontakt din nærmeste EDB'er",
+                        "message": "Klarte ikke å skrive Discord id til Galtinn!",
                     },
                 )
 
