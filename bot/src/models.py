@@ -37,7 +37,7 @@ class Membership(BaseModel):
 
 class ActiveMemberCard(BaseModel):
     card_number: int
-    registered: datetime
+    registered: Optional[datetime]
     is_active: bool
     user: int
     created: datetime
