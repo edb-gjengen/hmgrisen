@@ -340,6 +340,8 @@ class Galtinn(commands.Cog):
             self.bot.logger.error(f"Failed to assign roles to user {user.id}. {e}")
             return False
 
+        self.bot.logger.info(f"Roles updated for user {user.id}. Gave {roles_to_add}. Removed {roles_to_remove}")
+
         return True
 
     @tasks.loop(time=misc_utils.MIDNIGHT)
@@ -377,11 +379,7 @@ class Galtinn(commands.Cog):
                 continue
 
             roles_to_add, roles_to_remove = await self.get_user_galtinn_roles(galtinn_user)
-            roles_changed = await self.update_roles(discord_user, roles_to_add, roles_to_remove)
-            if roles_changed:
-                self.bot.logger.info(f"Roles updated for user {discord_user.id}")
-            else:
-                self.bot.logger.warning(f"Failed to update roles for user {discord_user.id}")
+            await self.update_roles(discord_user, roles_to_add, roles_to_remove)
 
             await asyncio.sleep(0.5)
 
