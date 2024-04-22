@@ -216,13 +216,13 @@ class Galtinn(commands.Cog):
 
         return all_discord_profiles
 
-    async def fetch_all_galtinn_roles(self) -> set[int] | None:
+    async def fetch_all_galtinn_roles(self) -> set[int]:
         """
         Fetch all roles connected to Galtinn groups
 
         Returns
         ----------
-        set(int) | None: Set of role ids or None if failed
+        set(int): Set of role ids
         """
 
         async def fetch_page(url: str):
@@ -250,7 +250,7 @@ class Galtinn(commands.Cog):
 
         groups = await fetch_page(initial_url)
         if not groups or groups.count == 0:
-            return None
+            return all_roles
 
         for group in groups.results:
             for discord_role in group.profile.discord_roles:
