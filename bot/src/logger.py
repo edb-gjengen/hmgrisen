@@ -9,7 +9,7 @@ class BotLogger:
     """Logging config for the bot"""
 
     def __init__(self):
-        logger = logging.getLogger("discord")
+        logger = logging.getLogger("")
         logger.setLevel(logging.INFO)
         formatter = logging.Formatter(
             "[{asctime}] [{levelname:<8}] {name} - [{filename}] - [{funcName}] - {message}",
