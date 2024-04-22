@@ -281,7 +281,6 @@ class Galtinn(commands.Cog):
         all_roles = await self.fetch_all_galtinn_roles()
 
         roles_to_add = set()
-        roles_to_remove = set()
 
         if galtinn_user.is_volunteer:
             roles_to_add.add(self.bot.galtinn_roles["volunteer"])
@@ -289,6 +288,7 @@ class Galtinn(commands.Cog):
             roles_to_add.add(self.bot.galtinn_roles["member"])
 
         if not galtinn_user.groups:
+            roles_to_remove = all_roles - roles_to_add
             return roles_to_add, roles_to_remove
 
         for group in galtinn_user.groups:
