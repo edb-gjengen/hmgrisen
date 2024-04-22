@@ -2,6 +2,7 @@ import asyncio
 import secrets
 import urllib.parse
 from datetime import datetime
+from datetime import timezone
 
 import aiohttp
 import discord
@@ -409,7 +410,7 @@ class Galtinn(commands.Cog):
         )
         for result in results:
             discord_id, expires = list(result)
-            if expires < datetime.utcnow():
+            if expires < datetime.now(timezone.utc):
                 await self.bot.db.execute(
                     """
                     DELETE FROM galtinn_verification
