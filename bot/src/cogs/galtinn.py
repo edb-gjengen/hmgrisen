@@ -412,7 +412,7 @@ class Galtinn(commands.Cog):
         )
         for result in results:
             discord_id, expires = list(result)
-            if expires < datetime.now(timezone.utc):
+            if expires < datetime.now(timezone.utc).replace(tzinfo=None):
                 await self.bot.db.execute(
                     """
                     DELETE FROM galtinn_verification
