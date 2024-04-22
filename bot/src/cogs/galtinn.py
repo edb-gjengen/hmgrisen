@@ -92,6 +92,8 @@ class Galtinn(commands.Cog):
             roles_to_add, roles_to_remove = await self.get_user_galtinn_roles(galtinn_user)
             await self.update_roles(discord_user, roles_to_add, roles_to_remove)
 
+            self.bot.logger.info(f"Completed processing {discord_user_id}!")
+
         conn = await self.bot.db.acquire()
         await conn.add_listener("galtinn_auth_complete", process_notification)
 
