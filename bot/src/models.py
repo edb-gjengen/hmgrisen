@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel
@@ -25,25 +24,6 @@ class Group(BaseModel):
     profile: GroupProfile
 
 
-class Membership(BaseModel):
-    id: int
-    start_date: datetime
-    end_date: Optional[datetime]
-    order: Optional[int]
-    user: int
-    membership_type: str
-    is_valid: bool
-
-
-class ActiveMemberCard(BaseModel):
-    card_number: int
-    registered: Optional[datetime]
-    is_active: bool
-    user: int
-    created: datetime
-    orders: list
-
-
 class UserDiscordProfile(BaseModel):
     id: int
     discord_id: int
@@ -53,17 +33,8 @@ class UserDiscordProfile(BaseModel):
 class DuskenUser(BaseModel):
     id: int
     username: str
-    email: str
-    first_name: str
-    last_name: str
-    phone_number: str
-    date_of_birth: Optional[datetime]
-    legacy_id: Optional[int]
-    place_of_study: Optional[int]
-    active_member_card: Optional[ActiveMemberCard]
     is_volunteer: bool
     is_member: bool
-    last_membership: Optional[Membership]
     groups: list[Group]
     discord_profile: Optional[UserDiscordProfile]
 
