@@ -330,6 +330,8 @@ class Galtinn(commands.Cog):
         roles_to_add = set(filter(None, roles_to_add))
         roles_to_remove = set(filter(None, roles_to_remove))
 
+        self.bot.logger.info(f"Updating roles for user {user.id}. Adding {roles_to_add}. Removing {roles_to_remove}")
+
         try:
             await user.add_roles(*roles_to_add, reason="Membership check")
             await user.remove_roles(*roles_to_remove, reason="Membership check")
@@ -340,7 +342,7 @@ class Galtinn(commands.Cog):
             self.bot.logger.error(f"Failed to assign roles to user {user.id}. {e}")
             return False
 
-        self.bot.logger.info(f"Roles updated for user {user.id}. Gave {roles_to_add}. Removed {roles_to_remove}")
+        self.bot.logger.info(f"Roles updated for user {user.id}!")
 
         return True
 
