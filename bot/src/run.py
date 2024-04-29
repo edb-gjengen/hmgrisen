@@ -31,16 +31,16 @@ class Bot(commands.Bot):
             "auth_token": os.environ.get("GALTINN_AUTH_TOKEN"),
         }
         self.galtinn_roles = {
-            "member": os.environ.get("BOT_GALTINN_ROLE_MEMBER"),
-            "volunteer": os.environ.get("BOT_GALTINN_ROLE_VOLUNTEER"),
+            "member": int(os.environ.get("BOT_GALTINN_ROLE_MEMBER")),
+            "volunteer": int(os.environ.get("BOT_GALTINN_ROLE_VOLUNTEER")),
         }
 
-        self.guild_id = os.environ.get("BOT_DEV_GUILD", 1162158668079444199)
+        self.guild_id = int(os.environ.get("BOT_DEV_GUILD", 1162158668079444199))
         self.emoji = {
             "online": os.environ.get("BOT_EMOJI_ONLINE"),
             "idle": os.environ.get("BOT_EMOJI_IDLE"),
             "dnd": os.environ.get("BOT_EMOJI_DND"),
-            "offline": os.environ.get("BOT_EMOJI_OFFLINE")
+            "offline": os.environ.get("BOT_EMOJI_OFFLINE"),
         }
 
     async def setup_hook(self):
