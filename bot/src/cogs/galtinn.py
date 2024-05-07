@@ -98,6 +98,9 @@ class Galtinn(commands.Cog):
         await conn.add_listener("galtinn_auth_complete", process_notification)
 
         while True:
+            if not self.bot.get_cog("Galtinn"):
+                self.bot.logger.info("Galtinn cog unload detected. Stopping db listener")
+                break
             await asyncio.sleep(1)
 
     async def fetch_galtinn_users(
