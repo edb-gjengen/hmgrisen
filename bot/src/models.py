@@ -21,7 +21,7 @@ class GroupProfile(BaseModel):
 class Group(BaseModel):
     id: int
     name: str
-    profile: GroupProfile
+    profile: Optional[GroupProfile]
 
 
 class UserDiscordProfile(BaseModel):
