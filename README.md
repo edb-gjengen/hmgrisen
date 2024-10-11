@@ -8,7 +8,7 @@ This repo is meant as a monorepo for the Discord bot and the verification server
 
 1. Create a `.env` file in the root of the project. Use the `.env.example` file as a template.
 
-2. Run `docker-compose up`
+2. Run `docker compose up`
 
 ## Responsibilities
 
