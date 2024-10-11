@@ -17,7 +17,7 @@ You have two options to run the bot:
 ### Option 1 - Docker (Recommended)
 
 ```
-docker-compose up
+docker compose up
 ```
 
 ### Option 2 - Manual
