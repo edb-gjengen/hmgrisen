@@ -1,5 +1,3 @@
-version: "3"
-
 services:
   hmgrisen_bot:
     container_name: hmgrisen_bot
