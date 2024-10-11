@@ -4,7 +4,7 @@ A multi-purpose Discord bot for the Discord server of The Norwegian Student Soci
 
 ## Get started
 
-0. Create a bot user / obtain a bot token. [Se her](https://discordpy.readthedocs.io/en/stable/discord.html)
+0. Create a bot user / obtain a bot token. [See this guide](https://discordpy.readthedocs.io/en/stable/discord.html)
 
 1. Make a copy of the `.env.example` file and rename it to `.env`
 
