@@ -10,6 +10,6 @@ This repo is meant as a monorepo for the Discord bot and the verification server
 
 2. Run `docker compose up`
 
-## Responsibilities
+## Database
 
 The Docker Compose file does not specify the set up of a database. We assume you have a Postgres DB running with a user set up. The bot will create the necessary tables on its own.
