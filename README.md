@@ -4,7 +4,7 @@ A multi-purpose Discord bot. Its main purpose is to link Galtinn users to their 
 
 ## Set up
 
-This repo is meant as a monorepo for the Discord bot and the verification server. Thus we will only explain how to run them together as a unit here. For setting them up individually, see their respective README files.
+This repo is meant as a monorepo for the Discord bot and the verification server. Thus we will only explain how to run them together as a unit here. See the respective folders' README files for instructions on how to run them individually.
 
 1. Create a `.env` file in the root of the project. Use the `.env.example` file as a template.
 
