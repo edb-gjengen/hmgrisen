@@ -80,7 +80,7 @@ class Galtinn(commands.Cog):
                     galtinn_user_id=galtinn_user_id, discord_id=discord_user_id
                 )
             ):
-                self.bot.logger.error(f"Failed to fetch user with ID {discord_user_id}. Not found")
+                self.bot.logger.error(f"Failed to fetch Galtinn user {galtinn_user_id} for Discord user {discord_user_id}")
                 return
 
             galtinn_user = galtinn_users.results[0]
