@@ -333,13 +333,37 @@ class Galtinn(commands.Cog):
             self.bot.logger.warning("Failed to fetch guild. Can't convert role ids to objects. Roles not applied")
             return False
 
-        roles_to_add = {await discord_utils.get_guild_role(self.bot, guild, role_id) for role_id in roles_to_add}
-        roles_to_remove = {await discord_utils.get_guild_role(self.bot, guild, role_id) for role_id in roles_to_remove}
+        requested_roles_to_add = roles_to_add
+        requested_roles_to_remove = roles_to_remove
+        roles_to_add = {
+            role
+            for role_id in requested_roles_to_add
+            if (role := await discord_utils.get_guild_role(self.bot, guild, role_id))
+        }
+        roles_to_remove = {
+            role
+            for role_id in requested_roles_to_remove
+            if (role := await discord_utils.get_guild_role(self.bot, guild, role_id))
+        }
 
-        # Filter out None values
-        # This should probably be integrated into the above code
-        roles_to_add = set(filter(None, roles_to_add))
-        roles_to_remove = set(filter(None, roles_to_remove))
+        missing_roles_to_add = requested_roles_to_add - {role.id for role in roles_to_add}
+        missing_roles_to_remove = requested_roles_to_remove - {role.id for role in roles_to_remove}
+        if missing_roles_to_add or missing_roles_to_remove:
+            self.bot.logger.error(
+                f"Could not resolve Discord roles for user {user.id}. "
+                f"Missing to add: {missing_roles_to_add}; Missing to remove: {missing_roles_to_remove}"
+            )
+            return False
+
+        unassignable_roles = {
+            role.id for role in roles_to_add.union(roles_to_remove) if not role.is_assignable()
+        }
+        if unassignable_roles:
+            self.bot.logger.error(
+                f"Discord bot cannot manage roles for user {user.id}: {unassignable_roles}. "
+                "Check Manage Roles permission and role hierarchy"
+            )
+            return False
 
         self.bot.logger.info(f"Updating roles for user {user.id}. Adding {roles_to_add}. Removing {roles_to_remove}")
 
