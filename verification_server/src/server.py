@@ -62,6 +62,7 @@ async def callback(request: Request, code: str, state: str):
                 "request": request,
                 "message": "Denne lenken er utløpt eller ugyldig! Prøv igjen fra start!",
             },
+            status_code=400,
         )
 
     discord_id, code_challenge, state = list(verification.values())
@@ -83,6 +84,7 @@ async def callback(request: Request, code: str, state: str):
                         "request": request,
                         "message": "Kunne ikke hente hente autentiseringsnøkkel fra Galtinn!",
                     },
+                    status_code=400,
                 )
             token_data = await r.json()
 
@@ -99,6 +101,7 @@ async def callback(request: Request, code: str, state: str):
                         "request": request,
                         "message": "Kunne ikke hente hente brukerinfo fra Galtinn!",
                     },
+                    status_code=502,
                 )
             user = await r.json()
 
@@ -116,6 +119,7 @@ async def callback(request: Request, code: str, state: str):
                         "request": request,
                         "message": "Klarte ikke å skrive Discord id til Galtinn!",
                     },
+                    status_code=502,
                 )
 
     # Delete verification entry
