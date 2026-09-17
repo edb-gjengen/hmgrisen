@@ -95,7 +95,9 @@ class Galtinn(commands.Cog):
 
             # Fetch and give roles
             roles_to_add, roles_to_remove = await self.get_user_galtinn_roles(galtinn_user)
-            await self.update_roles(discord_user, roles_to_add, roles_to_remove)
+            if not await self.update_roles(discord_user, roles_to_add, roles_to_remove):
+                self.bot.logger.error(f"Failed to apply Galtinn roles for user {discord_user_id}")
+                return
 
             self.bot.logger.info(f"Completed processing {discord_user_id}!")
 
