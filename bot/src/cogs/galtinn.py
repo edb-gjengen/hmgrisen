@@ -226,13 +226,13 @@ class Galtinn(commands.Cog):
 
         return all_discord_profiles
 
-    async def fetch_all_galtinn_roles(self) -> set[int]:
+    async def fetch_galtinn_group_roles(self) -> dict[int, set[int]]:
         """
-        Fetch all roles connected to Galtinn groups
+        Fetch Discord roles connected to each Galtinn group
 
         Returns
         ----------
-        set(int): Set of role ids
+        dict[int, set[int]]: Discord role ids keyed by Galtinn group id
         """
 
         async def fetch_page(url: str):
@@ -253,18 +253,19 @@ class Galtinn(commands.Cog):
 
                     return groups
 
-        all_roles = {self.bot.galtinn_roles["volunteer"], self.bot.galtinn_roles["member"]}
+        group_roles = {}
 
         params = {"no_discord_roles": False, "format": "json"}
         initial_url = f"{self.bot.galtinn['api_url']}/groups/?{urllib.parse.urlencode(params)}"
 
         groups = await fetch_page(initial_url)
         if not groups or groups.count == 0:
-            return all_roles
+            return group_roles
 
         for group in groups.results:
-            for discord_role in group.profile.discord_roles:
-                all_roles.add(discord_role.discord_id)
+            group_roles[group.id] = {
+                discord_role.discord_id for discord_role in (group.profile.discord_roles if group.profile else [])
+            }
 
         # Due to pagination we have to do this hacky workaround.
         while groups.next:
@@ -272,8 +273,18 @@ class Galtinn(commands.Cog):
             if not groups or groups.count == 0:
                 break
             for group in groups.results:
-                for discord_role in group.profile.discord_roles:
-                    all_roles.add(discord_role.discord_id)
+                group_roles[group.id] = {
+                    discord_role.discord_id for discord_role in (group.profile.discord_roles if group.profile else [])
+                }
+
+        return group_roles
+
+    async def fetch_all_galtinn_roles(self) -> set[int]:
+        """Fetch all Discord role ids connected to Galtinn groups."""
+
+        all_roles = {self.bot.galtinn_roles["volunteer"], self.bot.galtinn_roles["member"]}
+        for group_roles in (await self.fetch_galtinn_group_roles()).values():
+            all_roles.update(group_roles)
 
         return all_roles
 
@@ -290,8 +301,10 @@ class Galtinn(commands.Cog):
         tuple[set[int], set[int]]: Role ids to add, role ids to remove
         """
 
-        # Make sure we have the latest roles
-        all_roles = await self.fetch_all_galtinn_roles()
+        group_roles = await self.fetch_galtinn_group_roles()
+        all_roles = {self.bot.galtinn_roles["volunteer"], self.bot.galtinn_roles["member"]}
+        for roles in group_roles.values():
+            all_roles.update(roles)
 
         roles_to_add = set()
 
@@ -305,12 +318,7 @@ class Galtinn(commands.Cog):
             return roles_to_add, roles_to_remove
 
         for group in galtinn_user.groups:
-            # TODO: add a filter for this in the API?
-            if not group.profile or not group.profile.discord_roles:
-                continue
-
-            for discord_role in group.profile.discord_roles:
-                roles_to_add.add(discord_role.discord_id)
+            roles_to_add.update(group_roles.get(group.id, set()))
 
         roles_to_remove = all_roles - roles_to_add
 
