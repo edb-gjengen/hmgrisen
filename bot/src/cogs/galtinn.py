@@ -66,13 +66,18 @@ class Galtinn(commands.Cog):
 
             self.bot.logger.info("Received galtinn_auth_complete event from database")
 
-            # Surely, no one would ever send a bad payload, right? RIGHT???
-            discord_user_id, galtinn_user_id = payload.split(" ")
+            try:
+                discord_user_id, galtinn_user_id = payload.split(" ", 1)
+                discord_user_id = int(discord_user_id)
+                galtinn_user_id = int(galtinn_user_id)
+            except (TypeError, ValueError):
+                self.bot.logger.error(f"Invalid galtinn_auth_complete payload: {payload!r}")
+                return
 
             # Fetch Galtinn user
             if not (
                 galtinn_users := await self.fetch_galtinn_users(
-                    galtinn_user_id=int(galtinn_user_id), discord_id=int(discord_user_id)
+                    galtinn_user_id=galtinn_user_id, discord_id=discord_user_id
                 )
             ):
                 self.bot.logger.error(f"Failed to fetch user with ID {discord_user_id}. Not found")
