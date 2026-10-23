@@ -34,10 +34,11 @@ class Info(commands.Cog):
         (str): String of roles
         """
 
+        # @everyone is always included, so check for emptiness after it's filtered out
+        roles = [role.name for role in roles if not role.is_default()]
         if not roles:
             return "**Ingen roller**"
 
-        roles = [role.name for role in roles if role.name != "@everyone"]
         roles.reverse()
 
         return ", ".join(roles)
@@ -363,7 +364,7 @@ class Info(commands.Cog):
         rolle (discord.Role): Role to fetch information about
         """
 
-        if rolle.name == "@everyone":
+        if rolle.is_default():
             embed = embed_templates.error_warning("Skriv inn en annen rolle enn `@everyone`")
             return await interaction.response.send_message(embed=embed)
 
@@ -464,7 +465,7 @@ class Info(commands.Cog):
         """
 
         roles = sorted(
-            [r for r in interaction.guild.roles if r.name != "@everyone"], key=lambda x: len(x.members), reverse=True
+            [r for r in interaction.guild.roles if not r.is_default()], key=lambda x: len(x.members), reverse=True
         )
         roles_formatted = [f"**#{i + 1}** {r.mention} - {len(r.members)}" for i, r in enumerate(roles)]
 
