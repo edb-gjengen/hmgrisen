@@ -16,7 +16,7 @@ class Paginator:
         """
 
         self.content = content
-        self.total_page_count = ceil(len(content) / 10)
+        self.total_page_count = max(ceil(len(content) / 10), 1)  # Empty content still gets one empty page
         self.current_page = 1
 
     def get_page(self, page: int) -> list | None:
@@ -60,7 +60,8 @@ class Paginator:
         (list): The next page of the paginator
         """
 
-        self.current_page += 1
+        # Clamped, since a quick double click can arrive before the button is disabled
+        self.current_page = min(self.current_page + 1, self.total_page_count)
         return self.get_page(self.current_page)
 
     def previous_page(self) -> list | None:
@@ -72,7 +73,7 @@ class Paginator:
         (list): The previous page of the paginator
         """
 
-        self.current_page -= 1
+        self.current_page = max(self.current_page - 1, 1)
         return self.get_page(self.current_page)
 
     def first_page(self) -> list | None:
