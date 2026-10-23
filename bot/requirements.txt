@@ -3,6 +3,6 @@ discord.py==2.3.*
 psutil==5.9.*
 pydantic==2.7.*
 pypandoc==1.13.*
-python-dotenv==1.0.*
+python-dotenv==1.2.*
 regex==2023.12.25
 tzdata  # This only needed if run on windows. I haven't set a version either to ensure it's up to date.
