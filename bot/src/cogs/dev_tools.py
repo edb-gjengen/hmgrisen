@@ -79,7 +79,7 @@ class DevTools(commands.Cog):
 
         # Check confirmation
         def comfirm(reaction: discord.Reaction, user: discord.Member):
-            return user == ctx.author and str(reaction.emoji) == "✅"
+            return reaction.message.id == confirmation_msg.id and user == ctx.author and str(reaction.emoji) == "✅"
 
         try:
             await self.bot.wait_for("reaction_add", timeout=15.0, check=comfirm)
