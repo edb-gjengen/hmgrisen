@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 
 import aiohttp
 import asyncpg
@@ -9,13 +10,6 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-app = FastAPI()
-
-# HTML templates to serve prettier feedback to the user
-app.mount("/static", StaticFiles(directory="src/static"), name="static")
-templates = Jinja2Templates(directory="src/templates")
-
-
 load_dotenv()
 
 GALTINN_API_URL = os.environ["GALTINN_API_URL"]
@@ -24,8 +18,8 @@ GALTINN_REDIRECT_URI = os.environ["GALTINN_REDIRECT_URI"]
 GALTINN_AUTH_TOKEN = os.environ["GALTINN_AUTH_TOKEN"]
 
 
-@app.on_event("startup")
-async def startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     credentials = {
         "host": os.environ["DATABASE_HOST"],
         "database": os.environ["DATABASE_NAME"],
@@ -34,10 +28,16 @@ async def startup():
     }
     app.state.pool = await asyncpg.create_pool(**credentials)
 
+    yield
 
-@app.on_event("shutdown")
-async def shutdown():
     await app.state.pool.close()
+
+
+app = FastAPI(lifespan=lifespan)
+
+# HTML templates to serve prettier feedback to the user
+app.mount("/static", StaticFiles(directory="src/static"), name="static")
+templates = Jinja2Templates(directory="src/templates")
 
 
 @app.get("/")
