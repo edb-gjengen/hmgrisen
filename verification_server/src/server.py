@@ -66,7 +66,8 @@ async def callback(request: Request, code: str, state: str):
             status_code=400,
         )
 
-    discord_id, code_challenge = list(verification.values())
+    # The challenge column holds the PKCE code verifier
+    discord_id, code_verifier = list(verification.values())
 
     # Get auth_token from code
     payload = {
@@ -74,7 +75,7 @@ async def callback(request: Request, code: str, state: str):
         "grant_type": "authorization_code",
         "code": code,
         "redirect_uri": GALTINN_REDIRECT_URI,
-        "code_verifier": code_challenge,
+        "code_verifier": code_verifier,
     }
     async with aiohttp.ClientSession() as session:
         async with session.post(f"{GALTINN_API_URL}/oauth/token/", data=payload) as r:

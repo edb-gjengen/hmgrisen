@@ -1,4 +1,6 @@
 import asyncio
+import base64
+import hashlib
 import secrets
 import urllib.parse
 
@@ -544,8 +546,11 @@ class Galtinn(commands.Cog):
             await interaction.followup.send(embed=embed)
             return
 
-        challenge = f"{secrets.token_urlsafe(32)}"  # TODO: generate challenge based on private key?
-        state = f"{secrets.token_urlsafe(32)}"
+        # PKCE (S256). Only the hashed challenge is sent to Galtinn. The verifier is kept in the database
+        # (in the challenge column) for the verification server to complete the token exchange with
+        verifier = secrets.token_urlsafe(32)
+        challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
+        state = secrets.token_urlsafe(32)
 
         # Insert into verfications table, unless the user already has a pending verification.
         # Expired verifications that haven't been cleaned up yet are replaced
@@ -559,7 +564,7 @@ class Galtinn(commands.Cog):
             RETURNING TRUE;
             """,
             interaction.user.id,
-            challenge,
+            verifier,
             state,
         )
         if not inserted:
@@ -575,6 +580,7 @@ class Galtinn(commands.Cog):
             "response_type": "code",
             "redirect_uri": self.bot.galtinn["redirect_uri"],
             "code_challenge": challenge,
+            "code_challenge_method": "S256",
             "state": state,
         }
         url = f"{base_url}?{urllib.parse.urlencode(params)}"
