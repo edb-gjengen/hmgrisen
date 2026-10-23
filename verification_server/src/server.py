@@ -45,7 +45,7 @@ templates = Jinja2Templates(directory="src/templates")
 
 @app.get("/")
 async def index():
-    return "Hei du! Her skal ikke du drive å luske!"
+    return "Hei du! Her skal ikke du drive og luske!"
 
 
 @app.get("/callback")
