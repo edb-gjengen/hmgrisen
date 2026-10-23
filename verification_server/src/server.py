@@ -124,9 +124,8 @@ async def callback(request: Request, code: str, state: str):
                 )
 
     # Notify bot that user is verified
-    # asyncpg does not allow for arguments in NOTIFY queries, hence we use f-strings
-    notify_query = f"NOTIFY galtinn_auth_complete, '{discord_id} {user['sub']}'"
-    await app.state.pool.execute(notify_query)
+    # NOTIFY does not accept query arguments, but pg_notify does
+    await app.state.pool.execute("SELECT pg_notify('galtinn_auth_complete', $1)", f"{discord_id} {user['sub']}")
 
     return RedirectResponse(f"/success/{user['preferred_username']}", status_code=303)
 
