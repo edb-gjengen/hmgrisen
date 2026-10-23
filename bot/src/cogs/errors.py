@@ -20,7 +20,7 @@ class Errors(commands.Cog):
         bot.tree.on_error = self.on_app_command_error  # Set error handler for slash commands
 
     @commands.Cog.listener()
-    async def on_command(self, ctx: commands.Context):
+    async def on_command_completion(self, ctx: commands.Context):
         """
         Logs prefix command execution metadata
 
@@ -32,7 +32,7 @@ class Errors(commands.Cog):
         self.bot.logger.info(
             f'{"❌ " if ctx.command_failed else "✔ "} {ctx.command} | '
             + f"{ctx.author.name} ({ctx.author.id}) | "
-            + f"{ctx.guild.id}-{ctx.channel.id}-{ctx.message.id}"
+            + f"{ctx.guild.id if ctx.guild else None}-{ctx.channel.id}-{ctx.message.id}"
         )
 
     @commands.Cog.listener()
@@ -69,6 +69,10 @@ class Errors(commands.Cog):
         # Resetting it then would let the next attempt through
         if ctx.command and not isinstance(error, commands.CommandOnCooldown):
             ctx.command.reset_cooldown(ctx)
+
+        # Log command usage. on_command_completion is only dispatched for commands that succeed
+        if ctx.command:
+            await self.on_command_completion(ctx)
 
         # Ignore command's own error handling
         if hasattr(ctx.command, "on_error"):
