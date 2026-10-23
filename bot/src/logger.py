@@ -2,7 +2,6 @@ import logging
 import logging.handlers
 import os
 import sys
-from datetime import datetime
 
 
 class BotLogger:
@@ -20,10 +19,11 @@ class BotLogger:
         if not os.path.exists("logs"):
             os.makedirs("logs")
 
-        file_handler = logging.FileHandler(
-            filename=f"logs/{datetime.now().strftime('%Y-%m-%d %H-%M')}.log",
+        # Appends, so a restart doesn't overwrite the log. Rotated at midnight, and old logs are kept
+        file_handler = logging.handlers.TimedRotatingFileHandler(
+            filename="logs/bot.log",
+            when="midnight",
             encoding="utf-8",
-            mode="w",
         )
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
