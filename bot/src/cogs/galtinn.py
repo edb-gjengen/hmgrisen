@@ -179,7 +179,7 @@ class Galtinn(commands.Cog):
             # Fetch and give roles
             roles_to_add, roles_to_remove = await self.get_user_galtinn_roles(galtinn_user)
             if not await self.update_roles(discord_user, roles_to_add, roles_to_remove):
-                self.bot.logger.error(f"Failed to apply Galtinn roles for user {discord_user_id}")
+                self.bot.logger.error(f"Failed to apply some or all Galtinn roles for user {discord_user_id}")
                 return
         except Exception:
             self.bot.logger.exception(f"Failed to process galtinn_auth_complete event for user {discord_user_id}")
@@ -456,7 +456,7 @@ class Galtinn(commands.Cog):
 
         Reuturns
         ----------
-        bool: True if successful, False otherwise
+        bool: True if all roles were updated, False if any role could not be updated
         """
 
         if not (guild := await discord_utils.get_discord_guild(self.bot, self.bot.guild_id)):
@@ -476,24 +476,23 @@ class Galtinn(commands.Cog):
             if (role := await discord_utils.get_guild_role(self.bot, guild, role_id))
         }
 
-        missing_roles_to_add = requested_roles_to_add - {role.id for role in roles_to_add}
-        missing_roles_to_remove = requested_roles_to_remove - {role.id for role in roles_to_remove}
-        if missing_roles_to_add or missing_roles_to_remove:
-            self.bot.logger.error(
-                f"Could not resolve Discord roles for user {user.id}. "
-                f"Missing to add: {missing_roles_to_add}; Missing to remove: {missing_roles_to_remove}"
-            )
-            return False
+        # Problematic roles are skipped rather than aborting, so that one misconfigured role
+        # doesn't stop every other role from being updated
+        success = True
 
-        unassignable_roles = {
-            role.id for role in roles_to_add.union(roles_to_remove) if not role.is_assignable()
-        }
-        if unassignable_roles:
+        # Roles that don't exist on the server can't be held by the user, so only missing roles to add are a problem
+        if missing_roles_to_add := requested_roles_to_add - {role.id for role in roles_to_add}:
+            self.bot.logger.error(f"Could not resolve Discord roles to add for user {user.id}: {missing_roles_to_add}")
+            success = False
+
+        if unassignable_roles := {role for role in roles_to_add | roles_to_remove if not role.is_assignable()}:
             self.bot.logger.error(
-                f"Discord bot cannot manage roles for user {user.id}: {unassignable_roles}. "
+                f"Discord bot cannot manage roles for user {user.id}: {[role.id for role in unassignable_roles]}. "
                 "Check Manage Roles permission and role hierarchy"
             )
-            return False
+            roles_to_add -= unassignable_roles
+            roles_to_remove -= unassignable_roles
+            success = False
 
         self.bot.logger.info(f"Updating roles for user {user.id}. Adding {roles_to_add}. Removing {roles_to_remove}")
 
@@ -509,7 +508,7 @@ class Galtinn(commands.Cog):
 
         self.bot.logger.info(f"Roles updated for user {user.id}!")
 
-        return True
+        return success
 
     @tasks.loop(time=misc_utils.MIDNIGHT)
     async def membership_check(self):
