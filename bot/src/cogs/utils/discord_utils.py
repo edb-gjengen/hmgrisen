@@ -84,10 +84,8 @@ async def get_guild_member(bot: commands.Bot, guild: discord.Guild, user_id: int
         except discord.errors.NotFound:
             bot.logger.warning(f"Failed to fetch member with ID {user_id}. Not found")
         except discord.errors.Forbidden:
-            print("forbidden")
             bot.logger.warning(f"Failed to fetch member with ID {user_id}. Forbidden")
         except discord.errors.HTTPException:
-            print("httpexception")
             bot.logger.warning(f"Failed to fetch member with ID {user_id}. HTTPException")
 
     return user
