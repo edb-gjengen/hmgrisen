@@ -19,6 +19,7 @@ from models import DiscordProfiles
 from models import DuskenUser
 from models import Groups
 from models import Users
+from pydantic import ValidationError
 
 ResponseModel = TypeVar("ResponseModel", bound=BasicResponse)
 
@@ -220,11 +221,16 @@ class Galtinn(commands.Cog):
         url = f"{self.bot.galtinn['api_url']}/{endpoint}/?{urllib.parse.urlencode(params | {'format': 'json'})}"
         result = None
         while url:
-            async with self.session.get(url) as r:
-                if r.status != 200:
-                    self.bot.logger.warning(f"Failed to fetch {url} from Galtinn. Status: {r.status}")
-                    return result
-                page = model(**await r.json())
+            # Errors are logged and returned as a failed page, so callers only have to handle None
+            try:
+                async with self.session.get(url) as r:
+                    if r.status != 200:
+                        self.bot.logger.warning(f"Failed to fetch {url} from Galtinn. Status: {r.status}")
+                        return result
+                    page = model(**await r.json())
+            except (aiohttp.ClientError, asyncio.TimeoutError, ValidationError) as e:
+                self.bot.logger.warning(f"Failed to fetch {url} from Galtinn. {e!r}")
+                return result
 
             if result is None:
                 result = page
