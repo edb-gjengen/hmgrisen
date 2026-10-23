@@ -1,5 +1,5 @@
 asyncpg==0.32.*
-discord.py==2.3.*
+discord.py==2.7.*
 psutil==5.9.*
 pydantic==2.7.*
 pypandoc==1.13.*
