@@ -18,12 +18,16 @@ docker compose up
 
 ### Option 2 - Manual
 
-0. Install Python 3.12+
+0. Install [uv](https://docs.astral.sh/uv/getting-started/installation/). It installs the right Python version for you
 
 1. Install dependencies
 
 ```
-pip install -r requirements.txt -U
+uv sync
 ```
 
-2. Run - See [this guide](https://fastapi.tiangolo.com/#create-it)
+2. Run
+
+```
+uv run uvicorn src.server:app --port 8001
+```

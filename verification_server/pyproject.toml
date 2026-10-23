@@ -1,0 +1,14 @@
+[project]
+name = "hmgrisen-verification-server"
+version = "0.1.0"
+description = "A simple API that receives OAuth2 callbacks, verifies them and enters successful attempts into a database"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp==3.14.*",
+    "asyncpg==0.32.*",
+    "fastapi==0.162.*",
+    "jinja2==3.1.*",
+    "python-dotenv==1.2.*",
+    "uvicorn==0.54.*",
+]
