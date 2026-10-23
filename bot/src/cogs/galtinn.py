@@ -539,23 +539,33 @@ class Galtinn(commands.Cog):
         all_roles = await self.fetch_all_galtinn_roles()
 
         for galtinn_user in galtinn_users.results:
+            if not galtinn_user.discord_profile:
+                self.bot.logger.warning(f"Galtinn user {galtinn_user.id} has no Discord profile. Skipping")
+                continue
+
             self.bot.logger.info(
                 f"Checking membership status for galtinn user {galtinn_user.id}."
                 + f" Discord ID: {galtinn_user.discord_profile.discord_id}"
             )
-            # Fetch Discord user
-            if not (
-                discord_user := await discord_utils.get_guild_member(
-                    self.bot, guild, galtinn_user.discord_profile.discord_id
-                )
-            ):
-                self.bot.logger.error(
-                    f"Failed to fetch member with ID {galtinn_user.discord_profile.discord_id}. Not found"
-                )
-                continue
 
-            roles_to_add, roles_to_remove = await self.get_user_galtinn_roles(galtinn_user, all_roles)
-            await self.update_roles(discord_user, roles_to_add, roles_to_remove)
+            # An unhandled exception would stop the task loop until the bot is restarted,
+            # so one bad user must not be allowed to stop the check for everyone else
+            try:
+                # Fetch Discord user
+                if not (
+                    discord_user := await discord_utils.get_guild_member(
+                        self.bot, guild, galtinn_user.discord_profile.discord_id
+                    )
+                ):
+                    self.bot.logger.error(
+                        f"Failed to fetch member with ID {galtinn_user.discord_profile.discord_id}. Not found"
+                    )
+                    continue
+
+                roles_to_add, roles_to_remove = await self.get_user_galtinn_roles(galtinn_user, all_roles)
+                await self.update_roles(discord_user, roles_to_add, roles_to_remove)
+            except Exception:
+                self.bot.logger.exception(f"Failed to check membership status for galtinn user {galtinn_user.id}")
 
             await asyncio.sleep(0.5)
 
