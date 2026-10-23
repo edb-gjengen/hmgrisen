@@ -61,9 +61,9 @@ async def callback(request: Request, state: str, code: str | None = None):
     )
     if not verification:
         return templates.TemplateResponse(
+            request,
             "error.html",
             {
-                "request": request,
                 "message": "Denne lenken er utløpt eller ugyldig! Prøv igjen fra start!",
             },
             status_code=400,
@@ -73,9 +73,9 @@ async def callback(request: Request, state: str, code: str | None = None):
     # The verification is already claimed, so the user can start over right away
     if not code:
         return templates.TemplateResponse(
+            request,
             "error.html",
             {
-                "request": request,
                 "message": "Innloggingen i Galtinn ble avbrutt. Prøv igjen fra start!",
             },
             status_code=400,
@@ -97,9 +97,9 @@ async def callback(request: Request, state: str, code: str | None = None):
         async with session.post(f"{GALTINN_API_URL}/oauth/token/", data=payload) as r:
             if r.status != 200:
                 return templates.TemplateResponse(
+                    request,
                     "error.html",
                     {
-                        "request": request,
                         "message": "Kunne ikke hente autentiseringsnøkkel fra Galtinn!",
                     },
                     status_code=502,
@@ -108,9 +108,9 @@ async def callback(request: Request, state: str, code: str | None = None):
 
         if not (access_token := token_data.get("access_token")):
             return templates.TemplateResponse(
+                request,
                 "error.html",
                 {
-                    "request": request,
                     "message": "Galtinn svarte uten autentiseringsnøkkel!",
                 },
                 status_code=502,
@@ -123,9 +123,9 @@ async def callback(request: Request, state: str, code: str | None = None):
         ) as r:
             if r.status != 200:
                 return templates.TemplateResponse(
+                    request,
                     "error.html",
                     {
-                        "request": request,
                         "message": "Kunne ikke hente brukerinfo fra Galtinn!",
                     },
                     status_code=502,
@@ -140,27 +140,27 @@ async def callback(request: Request, state: str, code: str | None = None):
         ) as r:
             if r.status != 200 and r.status != 201:
                 return templates.TemplateResponse(
+                    request,
                     "error.html",
                     {
-                        "request": request,
                         "message": "Klarte ikke å skrive Discord id til Galtinn!",
                     },
                     status_code=502,
                 )
     except asyncio.TimeoutError:
         return templates.TemplateResponse(
+            request,
             "error.html",
             {
-                "request": request,
                 "message": "Fikk ikke svar fra Galtinn i tide. Prøv igjen fra start!",
             },
             status_code=504,
         )
     except aiohttp.ClientError:
         return templates.TemplateResponse(
+            request,
             "error.html",
             {
-                "request": request,
                 "message": "Klarte ikke å koble til Galtinn. Prøv igjen fra start!",
             },
             status_code=502,
@@ -175,4 +175,4 @@ async def callback(request: Request, state: str, code: str | None = None):
 
 @app.get("/success/{name}")
 async def success(request: Request, name: str):
-    return templates.TemplateResponse("success.html", {"request": request, "name": name})
+    return templates.TemplateResponse(request, "success.html", {"name": name})
