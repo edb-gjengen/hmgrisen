@@ -48,8 +48,27 @@ class Galtinn(commands.Cog):
                 discord_id BIGINT PRIMARY KEY,
                 challenge TEXT NOT NULL,
                 state TEXT NOT NULL,
-                expires TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'utc') + INTERVAL '2 minutes'
+                expires TIMESTAMPTZ DEFAULT NOW() + INTERVAL '2 minutes'
             );
+            """
+        )
+
+        # Tables created before expires was timezone aware stored naive UTC timestamps
+        await self.bot.db.execute(
+            """
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'galtinn_verification'
+                    AND column_name = 'expires'
+                    AND data_type = 'timestamp without time zone'
+                ) THEN
+                    ALTER TABLE galtinn_verification
+                        ALTER COLUMN expires TYPE TIMESTAMPTZ USING expires AT TIME ZONE 'utc',
+                        ALTER COLUMN expires SET DEFAULT NOW() + INTERVAL '2 minutes';
+                END IF;
+            END $$;
             """
         )
 
@@ -490,7 +509,7 @@ class Galtinn(commands.Cog):
         await self.bot.db.execute(
             """
             DELETE FROM galtinn_verification
-            WHERE expires < NOW() AT TIME ZONE 'utc';
+            WHERE expires < NOW();
             """
         )
 
