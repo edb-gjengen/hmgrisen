@@ -485,6 +485,14 @@ class Galtinn(commands.Cog):
             self.bot.logger.error(f"Could not resolve Discord roles to add for user {user.id}: {missing_roles_to_add}")
             success = False
 
+        # Only touch roles that actually change. Discord needs one API call per role added or removed
+        current_roles = set(user.roles)
+        roles_to_add -= current_roles
+        roles_to_remove &= current_roles
+
+        if not roles_to_add and not roles_to_remove:
+            return success
+
         if unassignable_roles := {role for role in roles_to_add | roles_to_remove if not role.is_assignable()}:
             self.bot.logger.error(
                 f"Discord bot cannot manage roles for user {user.id}: {[role.id for role in unassignable_roles]}. "
