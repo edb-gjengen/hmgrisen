@@ -100,9 +100,9 @@ async def callback(request: Request, state: str, code: str | None = None):
                     "error.html",
                     {
                         "request": request,
-                        "message": "Kunne ikke hente hente autentiseringsnøkkel fra Galtinn!",
+                        "message": "Kunne ikke hente autentiseringsnøkkel fra Galtinn!",
                     },
-                    status_code=400,
+                    status_code=502,
                 )
             token_data = await r.json()
 
@@ -126,7 +126,7 @@ async def callback(request: Request, state: str, code: str | None = None):
                     "error.html",
                     {
                         "request": request,
-                        "message": "Kunne ikke hente hente brukerinfo fra Galtinn!",
+                        "message": "Kunne ikke hente brukerinfo fra Galtinn!",
                     },
                     status_code=502,
                 )
