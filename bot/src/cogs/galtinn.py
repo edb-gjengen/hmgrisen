@@ -410,20 +410,25 @@ class Galtinn(commands.Cog):
 
         return all_roles
 
-    async def get_user_galtinn_roles(self, galtinn_user: DuskenUser) -> tuple[set, set]:
+    async def get_user_galtinn_roles(
+        self, galtinn_user: DuskenUser, all_roles: set[int] | None = None
+    ) -> tuple[set, set]:
         """
         Get which roles to add and which to remove based on the user's Galtinn membership status
 
         Parameters
         ----------
         galtinn_user (DuskenUser): Galtinn user object
+        all_roles (set[int] | None): All roles connected to Galtinn, as returned by fetch_all_galtinn_roles.
+            Fetched if not given. Pass it in when checking many users to avoid fetching it for every user
 
         Reuturns
         ----------
         tuple[set[int], set[int]]: Role ids to add, role ids to remove
         """
 
-        all_roles = await self.fetch_all_galtinn_roles()
+        if all_roles is None:
+            all_roles = await self.fetch_all_galtinn_roles()
 
         roles_to_add = set()
 
@@ -531,6 +536,8 @@ class Galtinn(commands.Cog):
             self.bot.logger.error("Failed to fetch Galtinn users or no users found. Aborting membership check...")
             return
 
+        all_roles = await self.fetch_all_galtinn_roles()
+
         for galtinn_user in galtinn_users.results:
             self.bot.logger.info(
                 f"Checking membership status for galtinn user {galtinn_user.id}."
@@ -547,7 +554,7 @@ class Galtinn(commands.Cog):
                 )
                 continue
 
-            roles_to_add, roles_to_remove = await self.get_user_galtinn_roles(galtinn_user)
+            roles_to_add, roles_to_remove = await self.get_user_galtinn_roles(galtinn_user, all_roles)
             await self.update_roles(discord_user, roles_to_add, roles_to_remove)
 
             await asyncio.sleep(0.5)
