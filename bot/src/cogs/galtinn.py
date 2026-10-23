@@ -37,8 +37,15 @@ class Galtinn(commands.Cog):
 
         self.listen_conn: asyncpg.Connection | None = None
         self.listen_reconnect_task: asyncio.Task | None = None
+        self.session: aiohttp.ClientSession | None = None
 
     async def cog_load(self):
+        # One session for all Galtinn requests, so connections are reused
+        self.session = aiohttp.ClientSession(
+            headers={"Authorization": f"Token {self.bot.galtinn['auth_token']}"},
+            timeout=aiohttp.ClientTimeout(total=10),
+        )
+
         await self.init_db()
         await self.listen_db()
 
@@ -58,6 +65,9 @@ class Galtinn(commands.Cog):
         if self.listen_conn:
             conn, self.listen_conn = self.listen_conn, None
             await conn.close()
+
+        if self.session:
+            await self.session.close()
 
     async def init_db(self):
         """
@@ -210,15 +220,11 @@ class Galtinn(commands.Cog):
         url = f"{self.bot.galtinn['api_url']}/{endpoint}/?{urllib.parse.urlencode(params | {'format': 'json'})}"
         result = None
         while url:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    url,
-                    headers={"Authorization": f"Token {self.bot.galtinn['auth_token']}"},
-                ) as r:
-                    if r.status != 200:
-                        self.bot.logger.warning(f"Failed to fetch {url} from Galtinn. Status: {r.status}")
-                        return result
-                    page = model(**await r.json())
+            async with self.session.get(url) as r:
+                if r.status != 200:
+                    self.bot.logger.warning(f"Failed to fetch {url} from Galtinn. Status: {r.status}")
+                    return result
+                page = model(**await r.json())
 
             if result is None:
                 result = page
@@ -585,18 +591,14 @@ class Galtinn(commands.Cog):
         galtinn_user = galtinn_users.results[0]
 
         # Remove the link before the roles, so a failed deletion doesn't leave the user linked but without roles
-        async with aiohttp.ClientSession() as session:
-            async with session.delete(
-                f"{self.bot.galtinn['api_url']}/discordprofiles/{galtinn_user.id}/",
-                headers={"Authorization": f"Token {self.bot.galtinn['auth_token']}"},
-            ) as r:
-                if r.status != 200 and r.status != 202 and r.status != 204:
-                    self.bot.logger.error(f"Failed to delete discord profile. Status: {r.status}.")
-                    embed = embed_templates.error_warning(
-                        "Klarte ikke å slette tilkoblingen til Galtinnbrukeren din. Dette bør du rapportere til EDB!"
-                    )
-                    await interaction.followup.send(embed=embed, ephemeral=True)
-                    return
+        async with self.session.delete(f"{self.bot.galtinn['api_url']}/discordprofiles/{galtinn_user.id}/") as r:
+            if r.status != 200 and r.status != 202 and r.status != 204:
+                self.bot.logger.error(f"Failed to delete discord profile. Status: {r.status}.")
+                embed = embed_templates.error_warning(
+                    "Klarte ikke å slette tilkoblingen til Galtinnbrukeren din. Dette bør du rapportere til EDB!"
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                return
 
         # The command can be used in DMs, where interaction.user is not a guild member and has no roles
         roles_changed = False
