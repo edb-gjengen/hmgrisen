@@ -65,11 +65,10 @@ class Errors(commands.Cog):
         error (commands.CommandError): Eror context object
         """
 
-        # Reset cooldown if command throws AttributeError
-        try:
-            self.bot.get_command(f"{ctx.command}").reset_cooldown(ctx)
-        except AttributeError:
-            pass
+        # Failed commands don't count towards the cooldown, unless the failure is the cooldown itself.
+        # Resetting it then would let the next attempt through
+        if ctx.command and not isinstance(error, commands.CommandOnCooldown):
+            ctx.command.reset_cooldown(ctx)
 
         # Ignore command's own error handling
         if hasattr(ctx.command, "on_error"):
