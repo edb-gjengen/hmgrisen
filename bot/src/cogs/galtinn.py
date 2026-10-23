@@ -226,6 +226,52 @@ class Galtinn(commands.Cog):
 
         return all_discord_profiles
 
+    async def fetch_galtinn_groups(self) -> Groups | None:
+        """
+        Attempts to fetch all groups with associated Discord roles from Galtinn
+        """
+
+        async def fetch_page(url: str):
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    url,
+                    headers={"Authorization": f"Token {self.bot.galtinn['auth_token']}"},
+                ) as r:
+                    if r.status == 404:
+                        self.bot.logger.info("No groups found in Galtinn")
+                        return None
+                    if r.status != 200:
+                        self.bot.logger.warning(f"Failed to fetch groups from Galtinn. Status: {r.status}")
+                        return None
+
+                    data = await r.json()
+                    groups = Groups(**data)
+
+                    return groups
+
+        params = {"no_discord_roles": False, "format": "json"}
+        initial_url = f"{self.bot.galtinn['api_url']}/groups/?{urllib.parse.urlencode(params)}"
+
+        groups = await fetch_page(initial_url)
+        if not groups:
+            return None
+
+        if groups.count == 0:
+            return groups
+
+        # Due to pagination we have to do this hacky workaround.
+        all_groups = groups.copy()
+        while groups.next:
+            groups = await fetch_page(groups.next)
+            if not groups or groups.count == 0:
+                break
+            all_groups.results.extend(groups.results)
+
+        all_groups.next = None
+        all_groups.previous = None
+
+        return all_groups
+
     async def fetch_all_galtinn_roles(self) -> set[int]:
         """
         Fetch all roles connected to Galtinn groups
@@ -602,6 +648,62 @@ class Galtinn(commands.Cog):
         )
         embed = embed_templates.success(f"Du har slettet tilkoblingen til Galtinnbrukeren din!{role_warning}")
         await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @app_commands.guild_only()
+    @app_commands.checks.bot_has_permissions(embed_links=True)
+    @app_commands.checks.cooldown(1, 5)
+    @galtinn_group.command(name="roller", description="Vis alle roller som er koblet til en gruppe i Galtinn")
+    async def roles(self, interaction: discord.Interaction):
+        """
+        List all Discord roles that are connected to a Galtinn group
+
+        Parameters
+        ----------
+        interaction (discord.Interaction): Slash command context object
+        """
+
+        await interaction.response.defer()
+
+        groups = await self.fetch_galtinn_groups()
+        if groups is None:
+            embed = embed_templates.error_fatal("Klarte ikke å hente grupper fra Galtinn")
+            await interaction.followup.send(embed=embed)
+            return
+
+        # The API may return the same group more than once, so group names are collected in a set
+        role_groups: dict[int, set[str]] = {}
+        for group in groups.results:
+            if not group.profile:
+                continue
+            for discord_role in group.profile.discord_roles:
+                role_groups.setdefault(discord_role.discord_id, set()).add(group.name)
+
+        if not role_groups:
+            embed = embed_templates.error_warning("Ingen roller er koblet til grupper i Galtinn")
+            await interaction.followup.send(embed=embed)
+            return
+
+        found_roles = []
+        missing_roles = []
+        for role_id, group_names in role_groups.items():
+            groups_text = ", ".join(sorted(group_names))
+            if role := interaction.guild.get_role(role_id):
+                found_roles.append((role.name.lower(), f"{role.mention} - {groups_text}"))
+            else:
+                missing_roles.append(f"`{role_id}` (finnes ikke på serveren) - {groups_text}")
+
+        # Sort by role name, with roles missing from the server at the end
+        roles_formatted = [text for _, text in sorted(found_roles)] + missing_roles
+
+        paginator = misc_utils.Paginator(roles_formatted)
+        view = discord_utils.Scroller(paginator, interaction.user)
+
+        embed = view.construct_embed(
+            discord.Embed(
+                color=interaction.guild.me.color, title=f"Roller koblet til Galtinngrupper ({len(roles_formatted)})"
+            )
+        )
+        await interaction.followup.send(embed=embed, view=view)
 
 
 async def setup(bot: commands.Bot):
