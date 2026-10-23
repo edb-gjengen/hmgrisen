@@ -10,3 +10,7 @@ known_first_party = ["black"]
 
 [tool.ruff]
 line-length = 120
+
+[tool.ruff.lint]
+# The rules ruff checked by default before it widened its defaults. Its import sorting rule would also conflict with isort
+select = ["E", "F"]
