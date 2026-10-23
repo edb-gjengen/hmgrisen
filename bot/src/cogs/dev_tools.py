@@ -191,17 +191,14 @@ class DevTools(commands.Cog):
         ctx (commands.Context): Context object
         """
 
-        # Unload all cogs
+        # Unloading or reloading a cog that isn't loaded raises an error, so those are loaded instead
         for file in listdir("./src/cogs"):
             if file.endswith(".py"):
-                name = file[:-3]
-                await self.bot.unload_extension(f"cogs.{name}")
-
-        # Load all cogs
-        for file in listdir("./src/cogs"):
-            if file.endswith(".py"):
-                name = file[:-3]
-                await self.bot.load_extension(f"cogs.{name}")
+                name = f"cogs.{file[:-3]}"
+                if name in self.bot.extensions:
+                    await self.bot.reload_extension(name)
+                else:
+                    await self.bot.load_extension(name)
 
         embed = discord.Embed(color=ctx.me.color, description="Reloaded all cogs")
         await ctx.reply(embed=embed)
@@ -216,10 +213,9 @@ class DevTools(commands.Cog):
         ctx (commands.Context): Context object
         """
 
-        for file in listdir("./src/cogs"):
-            if file.endswith(".py"):
-                name = file[:-3]
-                await self.bot.reload_extension(f"cogs.{name}")
+        # Only loaded cogs can be reloaded. Copied to a list since reloading modifies bot.extensions
+        for name in list(self.bot.extensions):
+            await self.bot.reload_extension(name)
 
         embed = discord.Embed(color=ctx.me.color, description="Reloaded all previously enabled cogs")
         await ctx.reply(embed=embed)
