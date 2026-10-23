@@ -18,8 +18,8 @@ class Info(commands.Cog):
 
         self.bot = bot
 
-    guild_group = app_commands.Group(name="guild", description="Se ting om serveren")
-    user_group = app_commands.Group(name="bruker", description="Se ting om brukeren")
+    guild_group = app_commands.Group(name="guild", description="Se ting om serveren", guild_only=True)
+    user_group = app_commands.Group(name="bruker", description="Se ting om brukeren", guild_only=True)
 
     def construct_role_string(self, roles: list[discord.Role]) -> str:
         """
@@ -87,7 +87,6 @@ class Info(commands.Cog):
 
         return ", ".join(members)
 
-    @app_commands.guild_only()
     @app_commands.checks.bot_has_permissions(embed_links=True, external_emojis=True)
     @app_commands.checks.cooldown(1, 2)
     @guild_group.command(name="info", description="Hent informasjon om en server")
@@ -244,7 +243,6 @@ class Info(commands.Cog):
             embed.add_field(name="Bilder", value=photos_string)
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.guild_only()
     @app_commands.checks.bot_has_permissions(embed_links=True, attach_files=True)
     @app_commands.checks.cooldown(1, 2)
     @guild_group.command(name="roller", description="Se rollene på serveren")
@@ -268,7 +266,6 @@ class Info(commands.Cog):
             embed.set_footer(text=interaction.guild.name, icon_url=interaction.guild.icon)
             await interaction.response.send_message(embed=embed)
 
-    @app_commands.guild_only()
     @app_commands.checks.bot_has_permissions(embed_links=True)
     @app_commands.checks.cooldown(1, 2)
     @guild_group.command(name="boosters", description="Se boostere på serveren")
@@ -294,7 +291,6 @@ class Info(commands.Cog):
         embed.set_footer(text=interaction.guild.name, icon_url=interaction.guild.icon)
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.guild_only()
     @app_commands.checks.bot_has_permissions(embed_links=True)
     @app_commands.checks.cooldown(1, 2)
     @guild_group.command(name="ikon", description="Hent serverens ikon")
@@ -312,7 +308,6 @@ class Info(commands.Cog):
         embed.set_image(url=interaction.guild.icon)
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.guild_only()
     @app_commands.checks.bot_has_permissions(embed_links=True)
     @app_commands.checks.cooldown(1, 2)
     @guild_group.command(name="splash", description="Hent serverens splash (bakgrunnsbilde på invitasjonsside)")
@@ -334,7 +329,6 @@ class Info(commands.Cog):
         embed.set_image(url=interaction.guild.splash)
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.guild_only()
     @app_commands.checks.bot_has_permissions(embed_links=True)
     @app_commands.checks.cooldown(1, 2)
     @guild_group.command(name="banner", description="Hen serverens banner")
@@ -356,7 +350,6 @@ class Info(commands.Cog):
         embed.set_image(url=interaction.guild.banner)
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.guild_only()
     @app_commands.checks.bot_has_permissions(embed_links=True)
     @app_commands.checks.cooldown(1, 2)
     @guild_group.command(name="rolle", description="Hent informasjon om en rolle på serveren")
@@ -401,7 +394,6 @@ class Info(commands.Cog):
         embed.add_field(name=f"Brukere med rollen ({len(rolle.members)})", value=members, inline=False)
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.guild_only()
     @app_commands.checks.bot_has_permissions(embed_links=True)
     @app_commands.checks.cooldown(1, 2)
     @guild_group.command(name="tekstkanal", description="Hent informasjon om en tekstkanal")
@@ -434,7 +426,6 @@ class Info(commands.Cog):
         embed.add_field(name=f"Antall med tilgang ({len(kanal.members)})", value=members)
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.guild_only()
     @app_commands.checks.bot_has_permissions(embed_links=True)
     @app_commands.checks.cooldown(1, 2)
     @guild_group.command(name="talekanal", description="Hent informasjon om en talekanal")
@@ -460,7 +451,6 @@ class Info(commands.Cog):
         embed.add_field(name="Antall koblet til", value=len(kanal.members))
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.guild_only()
     @app_commands.checks.bot_has_permissions(embed_links=True)
     @app_commands.checks.cooldown(1, 5)
     @guild_group.command(name="topproller", description="Viser rollene med flest brukere i kronologisk rekkefølge")
@@ -521,7 +511,6 @@ class Info(commands.Cog):
         name="eldst", description="Viser de eldste medlemmene på serveren", parent=guild_group
     )
 
-    @commands.guild_only()
     @app_commands.checks.bot_has_permissions(embed_links=True)
     @app_commands.checks.cooldown(1, 5)
     @guild_oldest_group.command(
@@ -554,7 +543,6 @@ class Info(commands.Cog):
         )
         await interaction.response.send_message(embed=embed, view=view)
 
-    @commands.guild_only()
     @app_commands.checks.bot_has_permissions(embed_links=True)
     @app_commands.checks.cooldown(1, 5)
     @guild_oldest_group.command(
@@ -586,7 +574,6 @@ class Info(commands.Cog):
         )
         await interaction.response.send_message(embed=embed, view=view)
 
-    @app_commands.guild_only()
     @app_commands.checks.bot_has_permissions(embed_links=True, external_emojis=True)
     @app_commands.checks.cooldown(1, 2)
     @user_group.command(name="info", description="Hent informasjon om en bruker")
@@ -683,7 +670,6 @@ class Info(commands.Cog):
 
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.guild_only()
     @app_commands.checks.bot_has_permissions(embed_links=True)
     @app_commands.checks.cooldown(1, 2)
     @user_group.command(name="roller", description="Hent roller til en bruker")

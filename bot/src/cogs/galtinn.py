@@ -739,7 +739,6 @@ class Galtinn(commands.Cog):
         embed = embed_templates.success(f"Du har slettet tilkoblingen til Galtinnbrukeren din!{role_warning}")
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @app_commands.guild_only()
     @app_commands.checks.bot_has_permissions(embed_links=True)
     @app_commands.checks.cooldown(1, 5)
     @galtinn_group.command(name="roller", description="Vis alle roller som er koblet til en gruppe i Galtinn")
@@ -751,6 +750,12 @@ class Galtinn(commands.Cog):
         ----------
         interaction (discord.Interaction): Slash command context object
         """
+
+        # Discord ignores guild_only on subcommands, and the rest of the group has to work in DMs
+        if not interaction.guild:
+            embed = embed_templates.error_warning("Denne kommandoen kan bare brukes i en server")
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
 
         await interaction.response.defer()
 
