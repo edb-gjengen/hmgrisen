@@ -5,6 +5,7 @@ import secrets
 import urllib.parse
 
 import aiohttp
+import asyncpg
 import discord
 from cogs.utils import discord_utils
 from cogs.utils import embed_templates
@@ -30,14 +31,24 @@ class Galtinn(commands.Cog):
 
         self.bot = bot
 
+        self.listen_conn: asyncpg.Connection | None = None
+
+    async def cog_load(self):
+        await self.init_db()
+        await self.listen_db()
+
         self.membership_check.start()
         self.verification_cleanup.start()
-        asyncio.create_task(self.listen_db())
 
-    def cog_unload(self):
+    async def cog_unload(self):
         self.bot.logger.info("Unloading cog")
         self.membership_check.cancel()
         self.verification_cleanup.cancel()
+
+        # Closing the connection also removes its listeners
+        if self.listen_conn:
+            await self.listen_conn.close()
+            self.listen_conn = None
 
     async def init_db(self):
         """
@@ -76,30 +87,39 @@ class Galtinn(commands.Cog):
 
     async def listen_db(self):
         """
-        Creates a listener for galitnn_auth_complete events from the database and processes them
+        Opens a dedicated database connection that listens for galtinn_auth_complete events.
+        It is kept outside the pool so it doesn't hold a pool connection for the lifetime of the cog
         """
 
-        async def process_notification(conn, pid, channel, payload):
-            if channel != "galtinn_auth_complete":
-                return
+        self.listen_conn = await asyncpg.connect(**self.bot.db_credentials)
+        await self.listen_conn.add_listener("galtinn_auth_complete", self.process_notification)
 
-            self.bot.logger.info("Received galtinn_auth_complete event from database")
+    async def process_notification(self, conn: asyncpg.Connection, pid: int, channel: str, payload: str):
+        """
+        Applies Galtinn roles to a user that has just completed verification
+        """
 
-            try:
-                discord_user_id, galtinn_user_id = payload.split(" ", 1)
-                discord_user_id = int(discord_user_id)
-                galtinn_user_id = int(galtinn_user_id)
-            except (TypeError, ValueError):
-                self.bot.logger.error(f"Invalid galtinn_auth_complete payload: {payload!r}")
-                return
+        self.bot.logger.info("Received galtinn_auth_complete event from database")
 
+        try:
+            discord_user_id, galtinn_user_id = payload.split(" ", 1)
+            discord_user_id = int(discord_user_id)
+            galtinn_user_id = int(galtinn_user_id)
+        except (TypeError, ValueError):
+            self.bot.logger.error(f"Invalid galtinn_auth_complete payload: {payload!r}")
+            return
+
+        # asyncpg runs the callback as a detached task, so exceptions would otherwise go unnoticed
+        try:
             # Fetch Galtinn user
             if not (
                 galtinn_users := await self.fetch_galtinn_users(
                     galtinn_user_id=galtinn_user_id, discord_id=discord_user_id
                 )
             ):
-                self.bot.logger.error(f"Failed to fetch Galtinn user {galtinn_user_id} for Discord user {discord_user_id}")
+                self.bot.logger.error(
+                    f"Failed to fetch Galtinn user {galtinn_user_id} for Discord user {discord_user_id}"
+                )
                 return
 
             galtinn_user = galtinn_users.results[0]
@@ -117,17 +137,11 @@ class Galtinn(commands.Cog):
             if not await self.update_roles(discord_user, roles_to_add, roles_to_remove):
                 self.bot.logger.error(f"Failed to apply Galtinn roles for user {discord_user_id}")
                 return
+        except Exception:
+            self.bot.logger.exception(f"Failed to process galtinn_auth_complete event for user {discord_user_id}")
+            return
 
-            self.bot.logger.info(f"Completed processing {discord_user_id}!")
-
-        conn = await self.bot.db.acquire()
-        await conn.add_listener("galtinn_auth_complete", process_notification)
-
-        while True:
-            if not self.bot.get_cog("Galtinn"):
-                self.bot.logger.info("Galtinn cog unload detected. Stopping db listener")
-                break
-            await asyncio.sleep(1)
+        self.bot.logger.info(f"Completed processing {discord_user_id}!")
 
     async def fetch_galtinn_users(
         self, galtinn_user_id: int | None = None, discord_id: int | None = None, page: int = 1
@@ -714,6 +728,4 @@ async def setup(bot: commands.Bot):
     bot (commands.Bot): Bot instance
     """
 
-    cog = Galtinn(bot)
-    await cog.init_db()
-    await bot.add_cog(cog)
+    await bot.add_cog(Galtinn(bot))

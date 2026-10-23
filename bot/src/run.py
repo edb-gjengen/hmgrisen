@@ -46,13 +46,14 @@ class Bot(commands.Bot):
     async def setup_hook(self):
         # DB needs to be setup here because contructor is not async
         # Not ideal but does the job
-        credentials = {
+        # Credentials are kept for cogs that need a dedicated connection outside the pool
+        self.db_credentials = {
             "host": os.environ["DATABASE_HOST"],
             "database": os.environ["DATABASE_NAME"],
             "user": os.environ["DATABASE_USER"],
             "password": os.environ["DATABASE_PASSWORD"],
         }
-        self.db = await asyncpg.create_pool(**credentials)
+        self.db = await asyncpg.create_pool(**self.db_credentials)
 
         # Load cogs
         cogs = os.listdir("./src/cogs")
