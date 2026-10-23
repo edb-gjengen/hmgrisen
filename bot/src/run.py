@@ -93,11 +93,11 @@ async def on_ready():
         "idle": discord.Status.idle,
         "offline": discord.Status.offline,
     }
-    status_type = status_types.get(os.environ.get("BOT_PRESENCE_STATUS").lower(), discord.Status.online)
+    status_type = status_types.get(os.environ.get("BOT_PRESENCE_STATUS", "online").lower(), discord.Status.online)
 
     # Presence actitivity
     activities = {"playing": 0, "listening": 2, "watching": 3}
-    activity_type = activities.get(os.environ.get("BOT_PRESENCE_ACTIVITY").lower(), 0)
+    activity_type = activities.get(os.environ.get("BOT_PRESENCE_ACTIVITY", "playing").lower(), 0)
 
     await bot.change_presence(
         activity=discord.Activity(type=activity_type, name=os.environ.get("BOT_PRESENCE_MESSAGE", "Yeet")),
