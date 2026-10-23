@@ -19,7 +19,7 @@ templates = Jinja2Templates(directory="src/templates")
 load_dotenv()
 
 GALTINN_API_URL = os.environ["GALTINN_API_URL"]
-GALTIINN_CLIENT_ID = os.environ["GALTINN_CLIENT_ID"]
+GALTINN_CLIENT_ID = os.environ["GALTINN_CLIENT_ID"]
 GALTINN_REDIRECT_URI = os.environ["GALTINN_REDIRECT_URI"]
 GALTINN_AUTH_TOKEN = os.environ["GALTINN_AUTH_TOKEN"]
 
@@ -71,7 +71,7 @@ async def callback(request: Request, code: str, state: str):
 
     # Get auth_token from code
     payload = {
-        "client_id": GALTIINN_CLIENT_ID,
+        "client_id": GALTINN_CLIENT_ID,
         "grant_type": "authorization_code",
         "code": code,
         "redirect_uri": GALTINN_REDIRECT_URI,
