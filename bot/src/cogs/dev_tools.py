@@ -53,7 +53,7 @@ class DevTools(commands.Cog):
     @commands.is_owner()
     @commands.bot_has_permissions(embed_links=True, add_reactions=True)
     @commands.command(name="leave", description="Forlater en server. Om ingen er gitt, forlat der det ble sendt fra")
-    async def leave(self, ctx: commands.Context, *guild_id: int):
+    async def leave(self, ctx: commands.Context, guild_id: int | None = None):
         """
         Make bot leave a specified guild. If no guild is specified, leave the guild the command was sent from
 
