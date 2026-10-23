@@ -77,11 +77,8 @@ class Errors(commands.Cog):
 
         error = getattr(error, "original", error)
 
-        # Ignored errors
+        # Ignored errors. Checked last, since several of the errors handled below are subclasses of CheckFailure
         ignored_errors = (commands.CommandNotFound, commands.DisabledCommand, commands.CheckFailure)
-        if isinstance(error, ignored_errors):
-            self.bot.logger.info(f"Ignored error: {error!r}")
-            return
 
         # Errors that should prompt a help message
         send_help = (commands.MissingRequiredArgument, commands.TooManyArguments, commands.BadArgument)
@@ -99,7 +96,10 @@ class Errors(commands.Cog):
                 f"Kommandoen har nettopp blitt brukt\nPrøv igjen om `{error.retry_after:.1f}` sekunder.",
             )
         elif isinstance(error, commands.NoPrivateMessage):
-            embed = embed_templates.error_warning("Denne kommandoen kan bare utføres it servere")
+            embed = embed_templates.error_warning("Denne kommandoen kan bare utføres i servere")
+        elif isinstance(error, ignored_errors):
+            self.bot.logger.info(f"Ignored error: {error!r}")
+            return
         else:
             embed = embed_templates.error_fatal("En ukjent feil oppstod!")
             f = discord.File("./src/assets/edb.png")
