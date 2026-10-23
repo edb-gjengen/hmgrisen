@@ -75,20 +75,17 @@ class Galtinn(commands.Cog):
         Create the necessary tables for the cog to work
         """
 
-        await self.bot.db.execute(
-            """
+        await self.bot.db.execute("""
             CREATE TABLE IF NOT EXISTS galtinn_verification (
                 discord_id BIGINT PRIMARY KEY,
                 challenge TEXT NOT NULL,
                 state TEXT NOT NULL,
                 expires TIMESTAMPTZ DEFAULT NOW() + INTERVAL '2 minutes'
             );
-            """
-        )
+            """)
 
         # Tables created before expires was timezone aware stored naive UTC timestamps
-        await self.bot.db.execute(
-            """
+        await self.bot.db.execute("""
             DO $$
             BEGIN
                 IF EXISTS (
@@ -102,8 +99,7 @@ class Galtinn(commands.Cog):
                         ALTER COLUMN expires SET DEFAULT NOW() + INTERVAL '2 minutes';
                 END IF;
             END $$;
-            """
-        )
+            """)
 
     async def listen_db(self):
         """
@@ -471,12 +467,10 @@ class Galtinn(commands.Cog):
         Clean up any pending verifications that have expired
         """
 
-        await self.bot.db.execute(
-            """
+        await self.bot.db.execute("""
             DELETE FROM galtinn_verification
             WHERE expires < NOW();
-            """
-        )
+            """)
 
     @verification_cleanup.before_loop
     async def before_verification_cleanup(self):
