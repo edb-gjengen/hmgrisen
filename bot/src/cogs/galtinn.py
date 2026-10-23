@@ -171,17 +171,19 @@ class Galtinn(commands.Cog):
         # asyncpg runs the callback as a detached task, so exceptions would otherwise go unnoticed
         try:
             # Fetch Galtinn user
-            if not (
-                galtinn_users := await self.fetch_galtinn_users(
-                    galtinn_user_id=galtinn_user_id, discord_id=discord_user_id
-                )
-            ):
+            galtinn_users = await self.fetch_galtinn_users(discord_id=discord_user_id)
+            if not galtinn_users or not galtinn_users.results:
                 self.bot.logger.error(
                     f"Failed to fetch Galtinn user {galtinn_user_id} for Discord user {discord_user_id}"
                 )
                 return
 
             galtinn_user = galtinn_users.results[0]
+            if galtinn_user.id != galtinn_user_id:
+                self.bot.logger.error(
+                    f"Discord user {discord_user_id} is linked to Galtinn user {galtinn_user.id}, not {galtinn_user_id}"
+                )
+                return
 
             # Fetch Discord user
             if not (guild := await discord_utils.get_discord_guild(self.bot, self.bot.guild_id)):
@@ -240,18 +242,14 @@ class Galtinn(commands.Cog):
 
         return result
 
-    async def fetch_galtinn_users(
-        self, galtinn_user_id: int | None = None, discord_id: int | None = None
-    ) -> Users | None:
+    async def fetch_galtinn_users(self, discord_id: int | None = None) -> Users | None:
         """
-        Attempts to fetch user(s) from Galtinn. If no parameters are given, all users are fetched
+        Attempts to fetch user(s) from Galtinn. If no Discord ID is given, all users are fetched
         """
 
         params = {"no_discord_id": False}
         if discord_id:
             params["discord_profile__discord_id"] = discord_id
-        if galtinn_user_id:
-            params["id"] = galtinn_user_id
 
         return await self.fetch_paginated("users", params, Users)
 
