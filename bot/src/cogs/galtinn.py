@@ -708,10 +708,7 @@ class Galtinn(commands.Cog):
 
         galtinn_user = galtinn_users.results[0]
 
-        roles_to_add, roles_to_remove = await self.get_user_galtinn_roles(galtinn_user)
-        all_roles = roles_to_add.union(roles_to_remove)
-        roles_changed = await self.update_roles(interaction.user, set(), all_roles)
-
+        # Remove the link before the roles, so a failed deletion doesn't leave the user linked but without roles
         async with aiohttp.ClientSession() as session:
             async with session.delete(
                 f"{self.bot.galtinn['api_url']}/discordprofiles/{galtinn_user.id}/",
@@ -724,6 +721,15 @@ class Galtinn(commands.Cog):
                     )
                     await interaction.followup.send(embed=embed, ephemeral=True)
                     return
+
+        # The command can be used in DMs, where interaction.user is not a guild member and has no roles
+        roles_changed = False
+        if not (guild := await discord_utils.get_discord_guild(self.bot, self.bot.guild_id)):
+            self.bot.logger.error("Failed to fetch guild. Roles not removed")
+        elif not (member := await discord_utils.get_guild_member(self.bot, guild, interaction.user.id)):
+            self.bot.logger.error(f"Failed to fetch member with ID {interaction.user.id}. Roles not removed")
+        else:
+            roles_changed = await self.update_roles(member, set(), await self.fetch_all_galtinn_roles())
 
         role_warning = (
             "\n\nVi klarte dessverre ikke å slette rollene dine derimot. Kontakt en serveradmin"
