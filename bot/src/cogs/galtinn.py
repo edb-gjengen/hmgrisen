@@ -544,23 +544,30 @@ class Galtinn(commands.Cog):
             await interaction.followup.send(embed=embed)
             return
 
-        # Check if user is already pending verification
-        verification = await self.bot.db.fetchrow(
+        challenge = f"{secrets.token_urlsafe(32)}"  # TODO: generate challenge based on private key?
+        state = f"{secrets.token_urlsafe(32)}"
+
+        # Insert into verfications table, unless the user already has a pending verification.
+        # Expired verifications that haven't been cleaned up yet are replaced
+        inserted = await self.bot.db.fetchval(
             """
-            SELECT discord_id, challenge, state
-            FROM galtinn_verification
-            WHERE discord_id = $1;
+            INSERT INTO galtinn_verification (discord_id, challenge, state)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (discord_id) DO UPDATE
+            SET challenge = EXCLUDED.challenge, state = EXCLUDED.state, expires = DEFAULT
+            WHERE galtinn_verification.expires <= NOW()
+            RETURNING TRUE;
             """,
             interaction.user.id,
+            challenge,
+            state,
         )
-        if verification:
+        if not inserted:
             embed = embed_templates.error_warning("Du har allerede en pågående verifikasjon!")
             await interaction.followup.send(embed=embed)
             return
 
         # Generate OAuth2 URL
-        challenge = f"{secrets.token_urlsafe(32)}"  # TODO: generate challenge based on private key?
-        state = f"{secrets.token_urlsafe(32)}"
         base_url = f"{self.bot.galtinn['api_url']}/oauth/authorize/"
         params = {
             "client_id": self.bot.galtinn["client_id"],
@@ -571,17 +578,6 @@ class Galtinn(commands.Cog):
             "state": state,
         }
         url = f"{base_url}?{urllib.parse.urlencode(params)}"
-
-        # Insert into verfications table
-        await self.bot.db.execute(
-            """
-            INSERT INTO galtinn_verification
-            VALUES ($1, $2, $3);
-            """,
-            interaction.user.id,
-            challenge,
-            state,
-        )
 
         self.bot.logger.info(f"Generated challenge for user {interaction.user.id}")
 
