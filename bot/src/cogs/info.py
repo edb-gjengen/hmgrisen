@@ -304,6 +304,10 @@ class Info(commands.Cog):
         interaction (discord.Interaction): Slash command context object
         """
 
+        if not interaction.guild.icon:
+            embed = embed_templates.error_warning("Serveren har ikke et ikon")
+            return await interaction.response.send_message(embed=embed)
+
         embed = discord.Embed(color=interaction.guild.me.color, description=f"[Lenke]({interaction.guild.icon})")
         embed.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon)
         embed.set_image(url=interaction.guild.icon)
