@@ -1,8 +1,6 @@
 import asyncio
 import secrets
 import urllib.parse
-from datetime import datetime
-from datetime import timezone
 
 import aiohttp
 import discord
@@ -489,22 +487,12 @@ class Galtinn(commands.Cog):
         Clean up any pending verifications that have expired. This is in case the register command fails to do so
         """
 
-        results = await self.bot.db.fetch(
+        await self.bot.db.execute(
             """
-            SELECT discord_id, expires
-            FROM galtinn_verification;
+            DELETE FROM galtinn_verification
+            WHERE expires < NOW() AT TIME ZONE 'utc';
             """
         )
-        for result in results:
-            discord_id, expires = list(result)
-            if expires < datetime.now(timezone.utc).replace(tzinfo=None):
-                await self.bot.db.execute(
-                    """
-                    DELETE FROM galtinn_verification
-                    WHERE discord_id = $1;
-                    """,
-                    discord_id,
-                )
 
     @verification_cleanup.before_loop
     async def before_verification_cleanup(self):
