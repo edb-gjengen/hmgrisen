@@ -617,6 +617,10 @@ class Galtinn(commands.Cog):
 
         # Check if user is already registered
         discord_profile = await self.fetch_galtinn_discordprofiles(discord_id=interaction.user.id)
+        if discord_profile is None:
+            embed = embed_templates.error_fatal("Klarte ikke å hente data fra Galtinn. Prøv igjen senere!")
+            await interaction.followup.send(embed=embed)
+            return
         # API guarantees that there is only one or zero results so this is safe
         if discord_profile.count == 1:
             embed = embed_templates.error_warning("Du er allerede registrert!")
@@ -690,6 +694,10 @@ class Galtinn(commands.Cog):
 
         # Check if user exists
         galtinn_users = await self.fetch_galtinn_users(discord_id=interaction.user.id)
+        if galtinn_users is None:
+            embed = embed_templates.error_fatal("Klarte ikke å hente data fra Galtinn. Prøv igjen senere!")
+            await interaction.followup.send(embed=embed)
+            return
         # API guarantees that there is only one or zero results so this is safe
         if galtinn_users.count == 0:
             embed = embed_templates.error_warning("Du er ikke registrert!")
