@@ -1,3 +1,4 @@
+import asyncio
 import os
 from contextlib import asynccontextmanager
 
@@ -27,9 +28,11 @@ async def lifespan(app: FastAPI):
         "password": os.environ["DATABASE_PASSWORD"],
     }
     app.state.pool = await asyncpg.create_pool(**credentials)
+    app.state.http = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10))
 
     yield
 
+    await app.state.http.close()
     await app.state.pool.close()
 
 
@@ -77,7 +80,8 @@ async def callback(request: Request, code: str, state: str):
         "redirect_uri": GALTINN_REDIRECT_URI,
         "code_verifier": code_verifier,
     }
-    async with aiohttp.ClientSession() as session:
+    session: aiohttp.ClientSession = app.state.http
+    try:
         async with session.post(f"{GALTINN_API_URL}/oauth/token/", data=payload) as r:
             if r.status != 200:
                 return templates.TemplateResponse(
@@ -90,8 +94,7 @@ async def callback(request: Request, code: str, state: str):
                 )
             token_data = await r.json()
 
-    # Get user info from galtinn
-    async with aiohttp.ClientSession() as session:
+        # Get user info from galtinn
         async with session.get(
             f"{GALTINN_API_URL}/oauth/userinfo/",
             headers={"Authorization": f"Bearer {token_data['access_token']}"},
@@ -107,8 +110,7 @@ async def callback(request: Request, code: str, state: str):
                 )
             user = await r.json()
 
-    # Enter discord user into galtinn
-    async with aiohttp.ClientSession() as session:
+        # Enter discord user into galtinn
         async with session.post(
             f"{GALTINN_API_URL}/discordprofiles/",
             json={"discord_id": discord_id, "user": user["sub"]},
@@ -123,6 +125,24 @@ async def callback(request: Request, code: str, state: str):
                     },
                     status_code=502,
                 )
+    except asyncio.TimeoutError:
+        return templates.TemplateResponse(
+            "error.html",
+            {
+                "request": request,
+                "message": "Fikk ikke svar fra Galtinn i tide. Prøv igjen fra start!",
+            },
+            status_code=504,
+        )
+    except aiohttp.ClientError:
+        return templates.TemplateResponse(
+            "error.html",
+            {
+                "request": request,
+                "message": "Klarte ikke å koble til Galtinn. Prøv igjen fra start!",
+            },
+            status_code=502,
+        )
 
     # Notify bot that user is verified
     # NOTIFY does not accept query arguments, but pg_notify does
