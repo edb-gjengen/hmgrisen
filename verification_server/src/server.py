@@ -49,7 +49,7 @@ async def index():
 
 
 @app.get("/callback")
-async def callback(request: Request, code: str, state: str):
+async def callback(request: Request, state: str, code: str | None = None):
     # Claim the pending verification. Deleting it up front makes the state single use
     verification = await app.state.pool.fetchrow(
         """
@@ -65,6 +65,18 @@ async def callback(request: Request, code: str, state: str):
             {
                 "request": request,
                 "message": "Denne lenken er utløpt eller ugyldig! Prøv igjen fra start!",
+            },
+            status_code=400,
+        )
+
+    # Galtinn redirects back with an error instead of a code if the user declines or something goes wrong.
+    # The verification is already claimed, so the user can start over right away
+    if not code:
+        return templates.TemplateResponse(
+            "error.html",
+            {
+                "request": request,
+                "message": "Innloggingen i Galtinn ble avbrutt. Prøv igjen fra start!",
             },
             status_code=400,
         )
