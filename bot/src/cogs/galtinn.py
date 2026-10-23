@@ -237,7 +237,6 @@ class Galtinn(commands.Cog):
             if not galtinn_users or galtinn_users.count == 0:
                 break
             all_galtinn_users.results.extend(galtinn_users.results)
-            all_galtinn_users.count += galtinn_users.count
 
         # This doesn't make any difference but feels cleaner I guess
         all_galtinn_users.next = None
@@ -295,7 +294,6 @@ class Galtinn(commands.Cog):
             if not discord_profiles or discord_profiles.count == 0:
                 break
             all_discord_profiles.results.extend(discord_profiles.results)
-            all_discord_profiles.count += discord_profiles.count
 
         # This doesn't make any difference but feels cleaner I guess
         all_discord_profiles.next = None
