@@ -1,4 +1,4 @@
-asyncpg==0.29.*
+asyncpg==0.32.*
 discord.py==2.3.*
 psutil==5.9.*
 pydantic==2.7.*
