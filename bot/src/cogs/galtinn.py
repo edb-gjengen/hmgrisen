@@ -32,6 +32,7 @@ class Galtinn(commands.Cog):
         self.bot = bot
 
         self.listen_conn: asyncpg.Connection | None = None
+        self.listen_reconnect_task: asyncio.Task | None = None
 
     async def cog_load(self):
         await self.init_db()
@@ -45,10 +46,14 @@ class Galtinn(commands.Cog):
         self.membership_check.cancel()
         self.verification_cleanup.cancel()
 
-        # Closing the connection also removes its listeners
+        if self.listen_reconnect_task:
+            self.listen_reconnect_task.cancel()
+
+        # Closing the connection also removes its listeners.
+        # It is detached first so the termination listener doesn't try to reconnect
         if self.listen_conn:
-            await self.listen_conn.close()
-            self.listen_conn = None
+            conn, self.listen_conn = self.listen_conn, None
+            await conn.close()
 
     async def init_db(self):
         """
@@ -91,8 +96,47 @@ class Galtinn(commands.Cog):
         It is kept outside the pool so it doesn't hold a pool connection for the lifetime of the cog
         """
 
-        self.listen_conn = await asyncpg.connect(**self.bot.db_credentials)
-        await self.listen_conn.add_listener("galtinn_auth_complete", self.process_notification)
+        conn = await asyncpg.connect(**self.bot.db_credentials)
+        try:
+            await conn.add_listener("galtinn_auth_complete", self.process_notification)
+        except BaseException:
+            # Also covers the reconnect task being cancelled on cog unload
+            await conn.close()
+            raise
+
+        conn.add_termination_listener(self.on_listen_conn_terminated)
+        self.listen_conn = conn
+
+    def on_listen_conn_terminated(self, conn: asyncpg.Connection):
+        """
+        Starts reconnecting the listener if its connection is lost, e.g. on a database restart
+        """
+
+        # Connections closed on cog unload are detached before closing
+        if conn is not self.listen_conn:
+            return
+
+        self.bot.logger.warning("Lost database listener connection. Reconnecting...")
+        self.listen_conn = None
+        self.listen_reconnect_task = asyncio.create_task(self.reconnect_listener())
+
+    async def reconnect_listener(self):
+        """
+        Retries the listener connection with exponential backoff until it succeeds
+        """
+
+        delay = 1
+        while True:
+            try:
+                await self.listen_db()
+            except Exception as e:
+                self.bot.logger.error(f"Failed to reconnect database listener. Retrying in {delay}s. {e!r}")
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, 60)
+            else:
+                self.bot.logger.info("Database listener reconnected")
+                self.listen_reconnect_task = None
+                return
 
     async def process_notification(self, conn: asyncpg.Connection, pid: int, channel: str, payload: str):
         """
