@@ -93,32 +93,33 @@ async def get_guild_member(bot: commands.Bot, guild: discord.Guild, user_id: int
     return user
 
 
-async def get_guild_role(bot: commands.Bot, guild: discord.Guild, role_id: int) -> discord.Role | None:
+async def get_guild_roles(bot: commands.Bot, guild: discord.Guild, role_ids: set[int]) -> dict[int, discord.Role]:
     """
-    Helper function that tries fetching a discord object from the cache. If not found, fetches from the API
+    Helper function that tries fetching discord roles from the cache.
+    If any are not found, all roles are fetched from the API in a single call
 
     Parameters
     ----------
     bot (commands.Bot): Bot instance
-    guild (discord.Guild): The discord guild to fetch the role from
-    role_id (int): ID of the role
+    guild (discord.Guild): The discord guild to fetch the roles from
+    role_ids (set[int]): IDs of the roles
 
     Returns
     ----------
-    (discord.Role | None): Discord object. None if not found or failed to fetch from API
+    (dict[int, discord.Role]): Discord objects by ID. Roles that were not found or failed to fetch are left out
     """
 
-    role = guild.get_role(role_id)
-    if not role:
-        bot.logger.info(f"failed to fetch role {role_id} from cache. Making API call...")
+    roles = {role_id: role for role_id in role_ids if (role := guild.get_role(role_id))}
+    if missing_role_ids := role_ids - roles.keys():
+        bot.logger.info(f"failed to fetch roles {missing_role_ids} from cache. Making API call...")
         try:
-            roles = await guild.fetch_roles()
+            fetched_roles = await guild.fetch_roles()
         except discord.errors.HTTPException:
-            bot.logger.warning(f"Failed to fetch role with ID {role_id}. HTTPException")
+            bot.logger.warning(f"Failed to fetch roles with IDs {missing_role_ids}. HTTPException")
         else:
-            role = discord.utils.get(roles, id=role_id)
+            roles.update({role.id: role for role in fetched_roles if role.id in missing_role_ids})
 
-    return role
+    return roles
 
 
 class ScrollerButton(discord.ui.Button):

@@ -465,16 +465,11 @@ class Galtinn(commands.Cog):
 
         requested_roles_to_add = roles_to_add
         requested_roles_to_remove = roles_to_remove
-        roles_to_add = {
-            role
-            for role_id in requested_roles_to_add
-            if (role := await discord_utils.get_guild_role(self.bot, guild, role_id))
-        }
-        roles_to_remove = {
-            role
-            for role_id in requested_roles_to_remove
-            if (role := await discord_utils.get_guild_role(self.bot, guild, role_id))
-        }
+        guild_roles = await discord_utils.get_guild_roles(
+            self.bot, guild, requested_roles_to_add | requested_roles_to_remove
+        )
+        roles_to_add = {guild_roles[role_id] for role_id in requested_roles_to_add if role_id in guild_roles}
+        roles_to_remove = {guild_roles[role_id] for role_id in requested_roles_to_remove if role_id in guild_roles}
 
         # Problematic roles are skipped rather than aborting, so that one misconfigured role
         # doesn't stop every other role from being updated
