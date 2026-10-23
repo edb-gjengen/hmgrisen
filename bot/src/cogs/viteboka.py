@@ -1,13 +1,42 @@
+import asyncio
+
+import aiohttp
 import discord
 import pypandoc
 import regex  # This should be redundant as re now supports recursive patterns, but apparently it doesn't
-import requests
 from cogs.utils import embed_templates
 from discord import app_commands
 from discord.ext import commands
 
 WIKI_BASE_URL = "https://viteboka.studentersamfundet.no"
 API_URL = f"{WIKI_BASE_URL}/w/api.php"
+
+
+async def query_api(params: dict) -> dict:
+    """
+    Send a GET request to the Viteboka API
+
+    Parameters
+    ----------
+    params (dict): The query parameters
+
+    Returns
+    ----------
+    dict: The JSON response
+
+    Raises
+    ----------
+    VitebokaException: If the API could not be reached or did not respond with 200
+    """
+
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as session:
+            async with session.get(API_URL, params=params) as response:
+                if response.status != 200:
+                    raise VitebokaException(f"Klarte ikke å nå API (status {response.status})")
+                return await response.json()
+    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        raise VitebokaException("Klarte ikke å nå API") from e
 
 
 async def fetch_article(title: str):
@@ -30,12 +59,7 @@ async def fetch_article(title: str):
         "prop": "text|images|displaytitle|wikitext",
     }
 
-    response = requests.get(API_URL, params=params)
-
-    if response.status_code != 200:
-        raise VitebokaException("Klarte ikke å nå API")
-
-    page = response.json()
+    page = await query_api(params)
     if not (parse := page.get("parse")):
         raise VitebokaException(
             "Fant ingen artikkel med det navnet. Kan hende den finnes, men wiki-søk er balle. De burde tatt søketek"
@@ -53,7 +77,8 @@ async def fetch_article(title: str):
     text = regex.sub(
         r"(?=\{)(\{([^{}]|(?1))*\})|\[\[(Kategori|Fil):.+?\]\]|\{.+?\}", "", text, flags=regex.MULTILINE | regex.DOTALL
     )  # Remove templates, categories and images
-    text = pypandoc.convert_text(text, "markdown", format="mediawiki")
+    # Pandoc runs as a subprocess, so it's run in a thread to not block the bot
+    text = await asyncio.to_thread(pypandoc.convert_text, text, "markdown", format="mediawiki")
     text = regex.sub(
         r"\[(.+?)\]\(.+? \"wikilink\"\)", r"\1", text, flags=regex.MULTILINE | regex.DOTALL
     )  # Pandoc adds alt text to links. discord doesn't support that
@@ -126,13 +151,13 @@ class Viteboka(commands.Cog):
             "list": "search",
             "srsearch": søkestreng,
         }
-        response = requests.get(url=API_URL, params=params)
-        if response.status_code != 200:
-            self.bot.logger.error(f"Failed to search for articles with query {søkestreng}: {response.status_code}")
+        try:
+            data = await query_api(params)
+        except VitebokaException as e:
+            self.bot.logger.error(f"Failed to search for articles with query {søkestreng}: {e}")
             embed = embed_templates.error_fatal("Klarte ikke å søke etter artikler")
             return await interaction.followup.send(embed=embed)
 
-        data = response.json()
         search_results = data["query"]["search"]
 
         if not search_results:
@@ -186,13 +211,13 @@ class Viteboka(commands.Cog):
             "rnlimit": 1,  # Get one random article
         }
 
-        response = requests.get(url=API_URL, params=params)
-        if response.status_code != 200:
-            self.bot.logger.error(f"Failed to fetch random article: {response.status_code}")
+        try:
+            data = await query_api(params)
+        except VitebokaException as e:
+            self.bot.logger.error(f"Failed to fetch random article: {e}")
             embed = embed_templates.error_fatal("Klarte ikke å søke etter en tilfeldig artikkel")
             return await interaction.followup.send(embed=embed)
 
-        data = response.json()
         random_article_title = data["query"]["random"][0]["title"]
 
         try:
