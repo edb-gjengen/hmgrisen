@@ -503,7 +503,7 @@ class Galtinn(commands.Cog):
     @tasks.loop(minutes=2)
     async def verification_cleanup(self):
         """
-        Clean up any pending verifications that have expired. This is in case the register command fails to do so
+        Clean up any pending verifications that have expired
         """
 
         await self.bot.db.execute(
@@ -587,16 +587,6 @@ class Galtinn(commands.Cog):
             + f"{url}\n\nDu har 2 minutter på deg til å fullføre verifikasjonen."
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
-
-        #  Remove verification after 2 minutes
-        await asyncio.sleep(120)
-        await self.bot.db.execute(
-            """
-            DELETE FROM galtinn_verification
-            WHERE discord_id = $1;
-            """,
-            interaction.user.id,
-        )
 
     @app_commands.checks.bot_has_permissions(embed_links=True)
     @galtinn_group.command(name="slett", description="Fjern koblingen mellom Galtinnbrukeren din og Discord")
