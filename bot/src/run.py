@@ -63,7 +63,7 @@ class Bot(commands.Bot):
                 await bot.load_extension(f"cogs.{name}")
 
         # Sync slash commands
-        if os.environ.get("CONFIG_MODE") == "prod":
+        if os.environ.get("BOT_CONFIG_MODE") == "prod":
             await self.tree.sync()
         else:
             self.tree.copy_global_to(guild=discord.Object(id=self.guild_id))
