@@ -133,11 +133,15 @@ class Errors(commands.Cog):
         error (app_commands.AppCommandError): Eror context object
         """
 
-        await interaction.response.defer()
+        # The command may have deferred or responded before it failed
+        if not interaction.response.is_done():
+            await interaction.response.defer()
 
         # Log command usage, just in case
         await self.on_app_command_completion(interaction, interaction.command)
 
+        # Followups crash on file=None, so the edb picture is passed in a list that is empty for known errors
+        files = []
         if isinstance(error, app_commands.BotMissingPermissions):
             embed = self.error_missing_perms(error.missing_permissions, "Jeg")
         elif isinstance(error, app_commands.MissingPermissions):
@@ -148,17 +152,11 @@ class Errors(commands.Cog):
             )
         else:
             embed = embed_templates.error_fatal("En ukjent feil oppstod!")
-            f = discord.File("./src/assets/edb.png")
+            files.append(discord.File("./src/assets/edb.png"))
             embed.set_image(url="attachment://edb.png")
 
-        # Yeah, this fucking sucks but I want my beautiful edb picture :_;
         try:
-            f
-        except NameError:
-            f = None
-
-        try:
-            await interaction.followup.send(embed=embed, file=f)
+            await interaction.followup.send(embed=embed, files=files)
         except discord.errors.Forbidden:
             self.bot.logger.warning("Could not send error message to user")
         except app_commands.BotMissingPermissions:
