@@ -3,6 +3,7 @@ import base64
 import hashlib
 import secrets
 import urllib.parse
+from typing import TypeVar
 
 import aiohttp
 import asyncpg
@@ -13,10 +14,13 @@ from cogs.utils import misc_utils
 from discord import app_commands
 from discord.ext import commands
 from discord.ext import tasks
+from models import BasicResponse
 from models import DiscordProfiles
 from models import DuskenUser
 from models import Groups
 from models import Users
+
+ResponseModel = TypeVar("ResponseModel", bound=BasicResponse)
 
 
 class Galtinn(commands.Cog):
@@ -187,165 +191,79 @@ class Galtinn(commands.Cog):
 
         self.bot.logger.info(f"Completed processing {discord_user_id}!")
 
+    async def fetch_paginated(self, endpoint: str, params: dict, model: type[ResponseModel]) -> ResponseModel | None:
+        """
+        Fetches every page of a paginated Galtinn endpoint and merges the results into the first page
+
+        Parameters
+        ----------
+        endpoint (str): API endpoint, e.g. "users"
+        params (dict): Query parameters
+        model (type[BasicResponse]): Model each page is parsed into
+
+        Returns
+        ----------
+        (BasicResponse | None): All results. None if the first page could not be fetched.
+            If a later page fails, the results fetched so far are returned
+        """
+
+        url = f"{self.bot.galtinn['api_url']}/{endpoint}/?{urllib.parse.urlencode(params | {'format': 'json'})}"
+        result = None
+        while url:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    url,
+                    headers={"Authorization": f"Token {self.bot.galtinn['auth_token']}"},
+                ) as r:
+                    if r.status != 200:
+                        self.bot.logger.warning(f"Failed to fetch {url} from Galtinn. Status: {r.status}")
+                        return result
+                    page = model(**await r.json())
+
+            if result is None:
+                result = page
+            else:
+                result.results.extend(page.results)
+            url = page.next
+
+        return result
+
     async def fetch_galtinn_users(
-        self, galtinn_user_id: int | None = None, discord_id: int | None = None, page: int = 1
+        self, galtinn_user_id: int | None = None, discord_id: int | None = None
     ) -> Users | None:
         """
         Attempts to fetch user(s) from Galtinn. If no parameters are given, all users are fetched
         """
 
-        async def fetch_page(url: str):
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    url,
-                    headers={"Authorization": f"Token {self.bot.galtinn['auth_token']}"},
-                ) as r:
-                    if r.status == 404:
-                        self.bot.logger.info(f"No users found in Galtinn with the given parameters {params}")
-                        return None
-                    if r.status != 200:
-                        self.bot.logger.warning(f"Failed to fetch galtinn user(s). Status: {r.status}")
-                        return None
-
-                    data = await r.json()
-                    users = Users(**data)
-
-                    return users
-
-        params = {"no_discord_id": False, "page": page, "format": "json"}
+        params = {"no_discord_id": False}
         if discord_id:
             params["discord_profile__discord_id"] = discord_id
         if galtinn_user_id:
             params["id"] = galtinn_user_id
 
-        initial_url = f"{self.bot.galtinn['api_url']}/users/?{urllib.parse.urlencode(params)}"
-        galtinn_users = await fetch_page(initial_url)
-        if not galtinn_users:
-            return None
-
-        if galtinn_users.count == 0:
-            return galtinn_users
-
-        # Due to pagination we have to do this hacky workaround.
-        # I do not like the fact that we're modifying a return object like this just to satisfy the return type
-        # and it should probably be changed in the future.
-        # I do, however, not have the time to find a better way right now
-        all_galtinn_users = galtinn_users.copy()
-        while galtinn_users.next:
-            self.bot.logger.info(f"Fetching next page. {galtinn_users.next}")
-            galtinn_users = await fetch_page(galtinn_users.next)
-            if not galtinn_users or galtinn_users.count == 0:
-                break
-            all_galtinn_users.results.extend(galtinn_users.results)
-
-        # This doesn't make any difference but feels cleaner I guess
-        all_galtinn_users.next = None
-        all_galtinn_users.previous = None
-
-        return all_galtinn_users
+        return await self.fetch_paginated("users", params, Users)
 
     async def fetch_galtinn_discordprofiles(
-        self, galtinn_user_id: int | None = None, discord_id: int | None = None, page: int = 1
+        self, galtinn_user_id: int | None = None, discord_id: int | None = None
     ) -> DiscordProfiles | None:
         """
         Attempts to fetch discord profile(s) from Galtinn. If no parameters are given, all profiles are fetched
         """
 
-        async def fetch_page(url: str):
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    url,
-                    headers={"Authorization": f"Token {self.bot.galtinn['auth_token']}"},
-                ) as r:
-                    if r.status == 404:
-                        self.bot.logger.info(f"No discord profiles found in Galtinn with the given parameters {params}")
-                        return None
-                    if r.status != 200:
-                        self.bot.logger.warning(f"Failed to fetch galtinn user(s). Status: {r.status}")
-                        return None
-
-                    data = await r.json()
-                    discord_profiles = DiscordProfiles(**data)
-
-                    return discord_profiles
-
-        params = {"page": page, "format": "json"}
+        params = {}
         if discord_id:
             params["discord_id"] = discord_id
         if galtinn_user_id:
             params["user"] = galtinn_user_id
 
-        initial_url = f"{self.bot.galtinn['api_url']}/discordprofiles/?{urllib.parse.urlencode(params)}"
-
-        discord_profiles = await fetch_page(initial_url)
-        if not discord_profiles:
-            return None
-
-        if discord_profiles.count == 0:
-            return discord_profiles
-
-        # Due to pagination we have to do this hacky workaround.
-        # I do not like the fact that we're modifying a return object like this just to satisfy the return type
-        # and it should probably be changed in the future.
-        # I do, however, not have the time to find a better way right now
-        all_discord_profiles = discord_profiles.copy()
-        while discord_profiles.next:
-            discord_profiles = await fetch_page(discord_profiles.next)
-            if not discord_profiles or discord_profiles.count == 0:
-                break
-            all_discord_profiles.results.extend(discord_profiles.results)
-
-        # This doesn't make any difference but feels cleaner I guess
-        all_discord_profiles.next = None
-        all_discord_profiles.previous = None
-
-        return all_discord_profiles
+        return await self.fetch_paginated("discordprofiles", params, DiscordProfiles)
 
     async def fetch_galtinn_groups(self) -> Groups | None:
         """
         Attempts to fetch all groups with associated Discord roles from Galtinn
         """
 
-        async def fetch_page(url: str):
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    url,
-                    headers={"Authorization": f"Token {self.bot.galtinn['auth_token']}"},
-                ) as r:
-                    if r.status == 404:
-                        self.bot.logger.info("No groups found in Galtinn")
-                        return None
-                    if r.status != 200:
-                        self.bot.logger.warning(f"Failed to fetch groups from Galtinn. Status: {r.status}")
-                        return None
-
-                    data = await r.json()
-                    groups = Groups(**data)
-
-                    return groups
-
-        params = {"no_discord_roles": False, "format": "json"}
-        initial_url = f"{self.bot.galtinn['api_url']}/groups/?{urllib.parse.urlencode(params)}"
-
-        groups = await fetch_page(initial_url)
-        if not groups:
-            return None
-
-        if groups.count == 0:
-            return groups
-
-        # Due to pagination we have to do this hacky workaround.
-        all_groups = groups.copy()
-        while groups.next:
-            groups = await fetch_page(groups.next)
-            if not groups or groups.count == 0:
-                break
-            all_groups.results.extend(groups.results)
-
-        all_groups.next = None
-        all_groups.previous = None
-
-        return all_groups
+        return await self.fetch_paginated("groups", {"no_discord_roles": False}, Groups)
 
     async def fetch_all_galtinn_roles(self) -> set[int]:
         """
@@ -356,55 +274,15 @@ class Galtinn(commands.Cog):
         set(int): Set of role ids
         """
 
-        async def fetch_page(url: str):
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    url,
-                    headers={"Authorization": f"Token {self.bot.galtinn['auth_token']}"},
-                ) as r:
-                    if r.status == 404:
-                        self.bot.logger.info("No groups found in Galtinn")
-                        return None
-                    if r.status != 200:
-                        self.bot.logger.warning(f"Failed to fetch groups from Galtinn. Status: {r.status}")
-                        return None
-
-                    data = await r.json()
-                    groups = Groups(**data)
-
-                    return groups
-
         all_roles = {self.bot.galtinn_roles["volunteer"], self.bot.galtinn_roles["member"]}
 
-        params = {"no_discord_roles": False, "format": "json"}
-        initial_url = f"{self.bot.galtinn['api_url']}/groups/?{urllib.parse.urlencode(params)}"
-
-        groups = await fetch_page(initial_url)
-        if not groups or groups.count == 0:
+        if not (groups := await self.fetch_galtinn_groups()):
             return all_roles
 
         for group in groups.results:
-            self.bot.logger.info(
-                f"Galtinn group {group.id} ({group.name}) roles: "
-                f"{[role.discord_id for role in group.profile.discord_roles] if group.profile else []}"
-            )
-            all_roles.update(
-                discord_role.discord_id for discord_role in (group.profile.discord_roles if group.profile else [])
-            )
-
-        # Due to pagination we have to do this hacky workaround.
-        while groups.next:
-            groups = await fetch_page(groups.next)
-            if not groups or groups.count == 0:
-                break
-            for group in groups.results:
-                self.bot.logger.info(
-                    f"Galtinn group {group.id} ({group.name}) roles: "
-                    f"{[role.discord_id for role in group.profile.discord_roles] if group.profile else []}"
-                )
-                all_roles.update(
-                    discord_role.discord_id for discord_role in (group.profile.discord_roles if group.profile else [])
-                )
+            role_ids = [role.discord_id for role in group.profile.discord_roles] if group.profile else []
+            self.bot.logger.info(f"Galtinn group {group.id} ({group.name}) roles: {role_ids}")
+            all_roles.update(role_ids)
 
         return all_roles
 
