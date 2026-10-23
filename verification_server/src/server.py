@@ -94,10 +94,20 @@ async def callback(request: Request, code: str, state: str):
                 )
             token_data = await r.json()
 
+        if not (access_token := token_data.get("access_token")):
+            return templates.TemplateResponse(
+                "error.html",
+                {
+                    "request": request,
+                    "message": "Galtinn svarte uten autentiseringsnøkkel!",
+                },
+                status_code=502,
+            )
+
         # Get user info from galtinn
         async with session.get(
             f"{GALTINN_API_URL}/oauth/userinfo/",
-            headers={"Authorization": f"Bearer {token_data['access_token']}"},
+            headers={"Authorization": f"Bearer {access_token}"},
         ) as r:
             if r.status != 200:
                 return templates.TemplateResponse(
