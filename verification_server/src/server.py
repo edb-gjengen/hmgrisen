@@ -47,11 +47,12 @@ async def index():
 
 @app.get("/callback")
 async def callback(request: Request, code: str, state: str):
-    # Check if user is pending verification
+    # Claim the pending verification. Deleting it up front makes the state single use
     verification = await app.state.pool.fetchrow(
         """
-        SELECT discord_id, challenge, state
-        FROM galtinn_verification WHERE state = $1
+        DELETE FROM galtinn_verification
+        WHERE state = $1 AND expires > NOW()
+        RETURNING discord_id, challenge
         """,
         state,
     )
@@ -65,7 +66,7 @@ async def callback(request: Request, code: str, state: str):
             status_code=400,
         )
 
-    discord_id, code_challenge, state = list(verification.values())
+    discord_id, code_challenge = list(verification.values())
 
     # Get auth_token from code
     payload = {
@@ -121,15 +122,6 @@ async def callback(request: Request, code: str, state: str):
                     },
                     status_code=502,
                 )
-
-    # Delete verification entry
-    await app.state.pool.execute(
-        """
-        DELETE FROM galtinn_verification
-        WHERE discord_id = $1
-        """,
-        discord_id,
-    )
 
     # Notify bot that user is verified
     # asyncpg does not allow for arguments in NOTIFY queries, hence we use f-strings
