@@ -42,6 +42,10 @@ class Galtinn(commands.Cog):
         self.session: aiohttp.ClientSession | None = None
 
     async def cog_load(self):
+        """
+        Open the Galtinn session, set up the database listener and start the background tasks
+        """
+
         # One session for all Galtinn requests, so connections are reused
         self.session = aiohttp.ClientSession(
             headers={"Authorization": f"Token {self.bot.galtinn['auth_token']}"},
@@ -55,6 +59,10 @@ class Galtinn(commands.Cog):
         self.verification_cleanup.start()
 
     async def cog_unload(self):
+        """
+        Stop the background tasks and close the database listener and the Galtinn session
+        """
+
         self.bot.logger.info("Unloading cog")
         self.membership_check.cancel()
         self.verification_cleanup.cancel()
@@ -122,6 +130,10 @@ class Galtinn(commands.Cog):
     def on_listen_conn_terminated(self, conn: asyncpg.Connection):
         """
         Starts reconnecting the listener if its connection is lost, e.g. on a database restart
+
+        Parameters
+        ----------
+        conn (asyncpg.Connection): The connection that was lost
         """
 
         # Connections closed on cog unload are detached before closing
@@ -153,6 +165,13 @@ class Galtinn(commands.Cog):
     async def process_notification(self, conn: asyncpg.Connection, pid: int, channel: str, payload: str):
         """
         Applies Galtinn roles to a user that has just completed verification
+
+        Parameters
+        ----------
+        conn (asyncpg.Connection): The connection that received the notification
+        pid (int): The ID of the database process that sent the notification
+        channel (str): The notification channel
+        payload (str): The Discord user ID and the Galtinn user ID, separated by a space
         """
 
         self.bot.logger.info("Received galtinn_auth_complete event from database")
@@ -242,6 +261,10 @@ class Galtinn(commands.Cog):
     async def fetch_galtinn_users(self, discord_id: int | None = None) -> Users | None:
         """
         Attempts to fetch user(s) from Galtinn. If no Discord ID is given, all users are fetched
+
+        Parameters
+        ----------
+        discord_id (int | None): The Discord ID of the user to fetch
         """
 
         params = {"no_discord_id": False}
@@ -255,6 +278,11 @@ class Galtinn(commands.Cog):
     ) -> DiscordProfiles | None:
         """
         Attempts to fetch discord profile(s) from Galtinn. If no parameters are given, all profiles are fetched
+
+        Parameters
+        ----------
+        galtinn_user_id (int | None): Only fetch the profile of this Galtinn user
+        discord_id (int | None): Only fetch the profile with this Discord ID
         """
 
         params = {}
@@ -278,7 +306,7 @@ class Galtinn(commands.Cog):
 
         Returns
         ----------
-        set(int): Set of role ids
+        (set[int]): Set of role ids
         """
 
         all_roles = {self.bot.galtinn_roles["volunteer"], self.bot.galtinn_roles["member"]}
@@ -493,7 +521,7 @@ class Galtinn(commands.Cog):
 
         Parameters
         ----------
-        interaction (discord.Interaction): Slash command context object
+        interaction (discord.Interaction): The slash command interaction
         """
 
         await interaction.response.defer(ephemeral=True)
@@ -566,7 +594,7 @@ class Galtinn(commands.Cog):
 
         Parameters
         ----------
-        interaction (discord.Interaction): Slash command context object
+        interaction (discord.Interaction): The slash command interaction
         """
 
         # TODO: add confirmation button
@@ -627,7 +655,7 @@ class Galtinn(commands.Cog):
 
         Parameters
         ----------
-        interaction (discord.Interaction): Slash command context object
+        interaction (discord.Interaction): The slash command interaction
         """
 
         # Discord ignores guild_only on subcommands, and the rest of the group has to work in DMs
@@ -686,7 +714,7 @@ async def setup(bot: commands.Bot):
 
     Parameters
     ----------
-    bot (commands.Bot): Bot instance
+    bot (commands.Bot): The bot instance
     """
 
     await bot.add_cog(Galtinn(bot))

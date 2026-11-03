@@ -8,6 +8,10 @@ class BotLogger:
     """Logging config for the bot"""
 
     def __init__(self):
+        """
+        Log to the console and to a file that rotates at midnight
+        """
+
         logger = logging.getLogger("")
         logger.setLevel(logging.INFO)
         formatter = logging.Formatter(

@@ -12,7 +12,7 @@ async def send_as_txt_file(interaction: discord.Interaction, content: str, filen
 
     Parameters
     ----------
-    interaction (discord.Interaction): Slash command context object
+    interaction (discord.Interaction): The slash command interaction
     content (str): String that's too long to send
     filename (str): Name of the file shown in Discord
     """
@@ -27,7 +27,7 @@ async def get_discord_guild(bot: commands.Bot, id: int) -> discord.Guild | None:
 
     Parameters
     ----------
-    bot (commands.Bot): Bot instance
+    bot (commands.Bot): The bot instance
     id (int): ID of the object
 
     Returns
@@ -56,7 +56,7 @@ async def get_guild_member(bot: commands.Bot, guild: discord.Guild, user_id: int
 
     Parameters
     ----------
-    bot (commands.Bot): Bot instance
+    bot (commands.Bot): The bot instance
     guild (discord.Guild): The discord guild to fetch the member from
     user_id (int): ID of the user
 
@@ -87,7 +87,7 @@ async def get_guild_roles(bot: commands.Bot, guild: discord.Guild, role_ids: set
 
     Parameters
     ----------
-    bot (commands.Bot): Bot instance
+    bot (commands.Bot): The bot instance
     guild (discord.Guild): The discord guild to fetch the roles from
     role_ids (set[int]): IDs of the roles
 
@@ -123,11 +123,13 @@ class ScrollerButton(discord.ui.Button):
     ):
         """
         Parameters
-        -----------
+        ----------
         paginator (Paginator): The paginator object that contains the data to be paginated
         button_action (callable): The function that returns the requested page
         content_constructor (callable): A function that takes a paginator object and a page number and returns an embed
-        owner (discord.User|discord.Member): The user that invoked the paginator. Only this user can use the button
+        owner (discord.User | discord.Member): The user that invoked the paginator. Only this user can use the button
+        label (str): The text on the button
+        disabled (bool): Whether the button is greyed out
         """
 
         super().__init__(label=label, disabled=disabled)
@@ -141,8 +143,8 @@ class ScrollerButton(discord.ui.Button):
         What to do when the button is pressed
 
         Parameters
-        -----------
-        interaction (discord.Interaction): Slash command context object
+        ----------
+        interaction (discord.Interaction): The interaction that triggered this
         """
 
         if interaction.user.id != self.owner.id:
@@ -163,20 +165,20 @@ class Scroller(discord.ui.View):
 
     def __init__(
         self,
-        paginatior: misc_utils.Paginator,
+        paginator: misc_utils.Paginator,
         owner: discord.User | discord.Member,
         content_constructor: callable = None,
     ):
         """
         Parameters
-        -----------
+        ----------
         paginator (Paginator): The paginator object that contains the data to be paginated
-        owner (discord.User|discord.Member): The user that invoked the paginator. Only this user can use the buttons
+        owner (discord.User | discord.Member): The user that invoked the paginator. Only this user can use the buttons
         content_constructor (callable): A function that takes a paginator object and a page number and returns an embed
         """
 
         super().__init__()
-        self.paginator = paginatior
+        self.paginator = paginator
         self.content_constructor = content_constructor if content_constructor else self.__default_content_constructor
 
         self.add_item(
@@ -225,7 +227,7 @@ class Scroller(discord.ui.View):
         Constructs the embed to be displayed
 
         Parameters
-        -----------
+        ----------
         base_embed (discord.Embed): The base embed to add fields to
         """
 
@@ -237,8 +239,7 @@ class Scroller(discord.ui.View):
 
         Parameters
         ----------
-        paginator (Paginator): Paginator dataclass
-        page (list): List of streaks to display on a page
+        page (list): The items to show on the page
         embed (discord.Embed): Embed to add fields to
         """
 

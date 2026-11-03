@@ -31,7 +31,7 @@ class BotInfo(commands.Cog):
 
         Parameters
         ----------
-        interaction (discord.Interaction): Slash command context object
+        interaction (discord.Interaction): The slash command interaction
         """
 
         # Memory usage
@@ -99,7 +99,7 @@ class BotInfo(commands.Cog):
 
         Parameters
         ----------
-        interaction (discord.Interaction): Slash command context object
+        interaction (discord.Interaction): The slash command interaction
         """
 
         embed = discord.Embed(color=interaction.client.user.color)
@@ -115,7 +115,7 @@ class BotInfo(commands.Cog):
 
         Parameters
         ----------
-        interaction (discord.Interaction): Slash command context object
+        interaction (discord.Interaction): The slash command interaction
         """
 
         embed = discord.Embed(color=interaction.client.user.color)
@@ -128,7 +128,7 @@ class BotInfo(commands.Cog):
 
         Returns
         ----------
-        (int) The bot's ping in milliseconds
+        (int): The bot's ping in milliseconds
         """
 
         return int(self.bot.latency * 1000)
@@ -139,7 +139,7 @@ class BotInfo(commands.Cog):
 
         Returns
         ----------
-        (str) The bot's uptime in human readable format
+        (str): The bot's uptime in human readable format
         """
 
         now = time()
@@ -157,7 +157,7 @@ async def setup(bot: commands.Bot):
 
     Parameters
     ----------
-    bot (commands.Bot): Bot instance
+    bot (commands.Bot): The bot instance
     """
 
     await bot.add_cog(BotInfo(bot))

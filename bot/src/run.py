@@ -16,7 +16,13 @@ load_dotenv()
 
 
 class Bot(commands.Bot):
+    """The bot, configured from environment variables"""
+
     def __init__(self):
+        """
+        Read the configuration from the environment
+        """
+
         super().__init__(
             command_prefix=commands.when_mentioned_or(os.environ["BOT_PREFIX"]),
             case_insensitive=True,
@@ -48,6 +54,10 @@ class Bot(commands.Bot):
         }
 
     async def setup_hook(self):
+        """
+        Open the HTTP session and database pool, load the cogs and sync the slash commands
+        """
+
         self.http_session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15))
 
         # DB needs to be setup here because contructor is not async
@@ -97,6 +107,10 @@ class Bot(commands.Bot):
         """
         Close the HTTP session and database pool after the bot has shut down. This isn't done in close(),
         because bot.run doesn't wait for a close() started by the SIGTERM handler to finish
+
+        Parameters
+        ----------
+        *args (tuple): The exception type, value and traceback if the bot stopped because of an error
         """
 
         await super().__aexit__(*args)
@@ -112,6 +126,10 @@ bot = Bot()
 
 @bot.event
 async def on_ready():
+    """
+    Print the bot's info and set its presence once it's connected
+    """
+
     if not hasattr(bot, "uptime"):
         bot.uptime = time()
 

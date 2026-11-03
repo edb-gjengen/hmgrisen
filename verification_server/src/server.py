@@ -21,6 +21,14 @@ GALTINN_AUTH_TOKEN = os.environ["GALTINN_AUTH_TOKEN"]
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """
+    Open the database pool and HTTP session on startup, and close them on shutdown
+
+    Parameters
+    ----------
+    app (FastAPI): The app
+    """
+
     credentials = {
         "host": os.environ["DATABASE_HOST"],
         "database": os.environ["DATABASE_NAME"],
@@ -45,11 +53,25 @@ templates = Jinja2Templates(directory="src/templates")
 
 @app.get("/")
 async def index():
+    """
+    Tell visitors there's nothing to see here
+    """
+
     return "Hei du! Her skal ikke du drive og luske!"
 
 
 @app.get("/callback")
 async def callback(request: Request, state: str, code: str | None = None):
+    """
+    Finish a Galtinn login: link the Galtinn user to the Discord user and tell the bot
+
+    Parameters
+    ----------
+    request (Request): The request
+    state (str): Identifies the pending verification
+    code (str | None): The authorization code from Galtinn. Missing if the login was cancelled or failed
+    """
+
     # Claim the pending verification. Deleting it up front makes the state single use
     verification = await app.state.pool.fetchrow(
         """
@@ -175,4 +197,13 @@ async def callback(request: Request, state: str, code: str | None = None):
 
 @app.get("/success/{name}")
 async def success(request: Request, name: str):
+    """
+    Show the success page after a verification
+
+    Parameters
+    ----------
+    request (Request): The request
+    name (str): The Galtinn username to show
+    """
+
     return templates.TemplateResponse(request, "success.html", {"name": name})
