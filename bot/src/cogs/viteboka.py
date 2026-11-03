@@ -274,9 +274,9 @@ class Viteboka(commands.Cog):
             return await interaction.followup.send(embed=embed, view=view)
 
         try:
-            title, url, text, image = await fetch_article(self.bot.http_session, query)
+            title, url, text, image = await fetch_article(self.bot.http_session, title)
         except VitebokaException as e:
-            self.bot.logger.error(f"Failed to fetch article {query}: {e}")
+            self.bot.logger.error(f"Failed to fetch article {title}: {e}")
             embed = embed_templates.error_fatal(str(e))
             return await interaction.followup.send(embed=embed)
 
