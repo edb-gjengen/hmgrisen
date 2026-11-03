@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import datetime
 import hashlib
 import secrets
 import urllib.parse
@@ -706,6 +707,105 @@ class Galtinn(commands.Cog):
             )
         )
         await interaction.followup.send(embed=embed, view=view)
+
+    @app_commands.checks.bot_has_permissions(embed_links=True)
+    @app_commands.checks.cooldown(1, 5)
+    @galtinn_group.command(name="medlemskap", description="Sjekk medlemskap i Det Norske Studentersamfund")
+    @app_commands.rename(username="brukernavn", user="discordbruker")
+    @app_commands.describe(
+        username="Galtinn-brukernavnet",
+        user="Discordbrukeren som er koblet til Galtinn. Standard er deg selv",
+    )
+    async def membership(
+        self, interaction: discord.Interaction, username: str | None = None, user: discord.User | None = None
+    ):
+        """
+        Check someone's membership of Det Norske Studentersamfund
+
+        Parameters
+        ----------
+        interaction (discord.Interaction): The slash command interaction
+        username (str | None): The Galtinn username to look up
+        user (discord.User | None): The Discord user to look up. Defaults to the invoking user
+        """
+
+        if username and user:
+            embed = embed_templates.error_warning("Du kan ikke oppgi både brukernavn og discordbruker")
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        # Only users who have linked their Discord account to Galtinn can look up memberships
+        invokers = await self.fetch_galtinn_users(discord_id=interaction.user.id)
+        if invokers is None:
+            embed = embed_templates.error_fatal("Klarte ikke å hente data fra Galtinn. Prøv igjen senere!")
+            await interaction.followup.send(embed=embed)
+            return
+        if not invokers.results:
+            embed = embed_templates.error_warning(
+                "Du må koble Galtinnbrukeren din til Discord med `/galtinn registrer` for å se medlemskap"
+            )
+            await interaction.followup.send(embed=embed)
+            return
+
+        if username:
+            found = await self.fetch_paginated("users", {"username": username}, Users)
+            not_found = "Fant ingen Galtinnbruker med det brukernavnet"
+        elif user and user.id != interaction.user.id:
+            found = await self.fetch_galtinn_users(discord_id=user.id)
+            not_found = "Den brukeren har ikke koblet Discordbrukeren sin til Galtinn"
+        else:
+            found = invokers
+
+        if found is None:
+            embed = embed_templates.error_fatal("Klarte ikke å hente data fra Galtinn. Prøv igjen senere!")
+            await interaction.followup.send(embed=embed)
+            return
+        if not found.results:
+            await interaction.followup.send(embed=embed_templates.error_warning(not_found))
+            return
+
+        await interaction.followup.send(embed=self.membership_embed(found.results[0]))
+
+    def membership_embed(self, galtinn_user: DuskenUser) -> discord.Embed:
+        """
+        Build the embed that shows a user's membership
+
+        Parameters
+        ----------
+        galtinn_user (DuskenUser): The user to show
+
+        Returns
+        ----------
+        (discord.Embed): The embed
+        """
+
+        membership = galtinn_user.last_membership
+        is_valid = bool(membership and membership.is_valid)
+
+        embed = discord.Embed(color=discord.Color.green() if is_valid else discord.Color.red())
+        embed.set_author(name=galtinn_user.username)
+        if galtinn_user.discord_profile:
+            embed.description = f"<@{galtinn_user.discord_profile.discord_id}>"
+
+        if not membership:
+            embed.add_field(name="Medlem?", value="Har aldri vært medlem")
+            return embed
+
+        embed.add_field(name="Medlem?", value="Ja" if is_valid else "Nei")
+        if membership.membership_type:
+            embed.add_field(name="Medlemskapstype", value=membership.membership_type)
+        if membership.end_date:
+            # Noon, so the date shows up the same in every time zone close to Norway
+            expires = datetime.datetime.combine(membership.end_date, datetime.time(12), tzinfo=misc_utils.TIMEZONE)
+            embed.add_field(
+                name="Gyldig til",
+                value=f"{discord.utils.format_dt(expires, 'D')}\n{discord.utils.format_dt(expires, 'R')}",
+            )
+        else:
+            embed.add_field(name="Gyldig til", value="Livstid")
+        return embed
 
 
 async def setup(bot: commands.Bot):

@@ -7,7 +7,8 @@ from zoneinfo import ZoneInfo
 import aiohttp
 import discord
 
-MIDNIGHT = datetime.time(hour=0, minute=0, tzinfo=ZoneInfo("Europe/Oslo"))
+TIMEZONE = ZoneInfo("Europe/Oslo")
+MIDNIGHT = datetime.time(hour=0, minute=0, tzinfo=TIMEZONE)
 
 # The exceptions discord.py's tasks.loop retries instead of stopping on
 RETRIED_TASK_EXCEPTIONS = (

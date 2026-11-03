@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Optional
 
 from pydantic import BaseModel
@@ -38,6 +39,16 @@ class UserDiscordProfile(BaseModel):
     user: int
 
 
+class Membership(BaseModel):
+    """A membership of Det Norske Studentersamfund"""
+
+    start_date: date
+    end_date: Optional[date] = None  # None for lifelong memberships
+    # Galtinn leaves this out for members of the groups it counts as members without a membership
+    membership_type: Optional[str] = None
+    is_valid: bool
+
+
 class DuskenUser(BaseModel):
     """A Galtinn user"""
 
@@ -45,6 +56,7 @@ class DuskenUser(BaseModel):
     username: str
     is_volunteer: bool
     is_member: bool
+    last_membership: Optional[Membership] = None
     groups: list[Group]
     discord_profile: Optional[UserDiscordProfile]
 
