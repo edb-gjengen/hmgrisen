@@ -3,6 +3,7 @@ import os
 import signal
 from time import time
 
+import aiohttp
 import asyncpg
 import discord
 from discord.ext import commands
@@ -47,6 +48,8 @@ class Bot(commands.Bot):
         }
 
     async def setup_hook(self):
+        self.http_session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15))
+
         # DB needs to be setup here because contructor is not async
         # Not ideal but does the job
         # Credentials are kept for cogs that need a dedicated connection outside the pool
@@ -80,11 +83,13 @@ class Bot(commands.Bot):
 
     async def __aexit__(self, *args):
         """
-        Close the database pool after the bot has shut down. This isn't done in close(), because bot.run
-        doesn't wait for a close() started by the SIGTERM handler to finish
+        Close the HTTP session and database pool after the bot has shut down. This isn't done in close(),
+        because bot.run doesn't wait for a close() started by the SIGTERM handler to finish
         """
 
         await super().__aexit__(*args)
+        if hasattr(self, "http_session"):
+            await self.http_session.close()
         if hasattr(self, "db"):
             await self.db.close()
 

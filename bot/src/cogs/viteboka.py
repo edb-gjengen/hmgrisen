@@ -13,12 +13,13 @@ WIKI_BASE_URL = "https://viteboka.studentersamfundet.no"
 API_URL = f"{WIKI_BASE_URL}/w/api.php"
 
 
-async def query_api(params: dict) -> dict:
+async def query_api(session: aiohttp.ClientSession, params: dict) -> dict:
     """
     Send a GET request to the Viteboka API
 
     Parameters
     ----------
+    session (aiohttp.ClientSession): The HTTP session to use
     params (dict): The query parameters
 
     Returns
@@ -31,21 +32,21 @@ async def query_api(params: dict) -> dict:
     """
 
     try:
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as session:
-            async with session.get(API_URL, params=params) as response:
-                if response.status != 200:
-                    raise VitebokaException(f"Klarte ikke å nå API (status {response.status})")
-                return await response.json()
+        async with session.get(API_URL, params=params) as response:
+            if response.status != 200:
+                raise VitebokaException(f"Klarte ikke å nå API (status {response.status})")
+            return await response.json()
     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
         raise VitebokaException("Klarte ikke å nå API") from e
 
 
-async def fetch_article(title: str):
+async def fetch_article(session: aiohttp.ClientSession, title: str):
     """
     Fetch an article from Viteboka
 
     Parameters
     ----------
+    session (aiohttp.ClientSession): The HTTP session to use
     title (str): The title of the article to fetch
 
     Returns
@@ -60,7 +61,7 @@ async def fetch_article(title: str):
         "prop": "text|images|displaytitle|wikitext",
     }
 
-    page = await query_api(params)
+    page = await query_api(session, params)
     if not (parse := page.get("parse")):
         raise VitebokaException(
             "Fant ingen artikkel med det navnet. Kan hende den finnes, men wiki-søk er balle. De burde tatt søketek"
@@ -153,7 +154,7 @@ class Viteboka(commands.Cog):
             "srsearch": søkestreng,
         }
         try:
-            data = await query_api(params)
+            data = await query_api(self.bot.http_session, params)
         except VitebokaException as e:
             self.bot.logger.error(f"Failed to search for articles with query {søkestreng}: {e}")
             embed = embed_templates.error_fatal("Klarte ikke å søke etter artikler")
@@ -181,7 +182,7 @@ class Viteboka(commands.Cog):
             return await interaction.followup.send(embed=embed, view=view)
 
         try:
-            title, url, text, image = await fetch_article(søkestreng)
+            title, url, text, image = await fetch_article(self.bot.http_session, søkestreng)
         except VitebokaException as e:
             self.bot.logger.error(f"Failed to fetch article {søkestreng}: {e}")
             embed = embed_templates.error_fatal(str(e))
@@ -213,7 +214,7 @@ class Viteboka(commands.Cog):
         }
 
         try:
-            data = await query_api(params)
+            data = await query_api(self.bot.http_session, params)
         except VitebokaException as e:
             self.bot.logger.error(f"Failed to fetch random article: {e}")
             embed = embed_templates.error_fatal("Klarte ikke å søke etter en tilfeldig artikkel")
@@ -222,7 +223,7 @@ class Viteboka(commands.Cog):
         random_article_title = data["query"]["random"][0]["title"]
 
         try:
-            title, url, text, image = await fetch_article(random_article_title)
+            title, url, text, image = await fetch_article(self.bot.http_session, random_article_title)
         except VitebokaException as e:
             self.bot.logger.error(f"Failed to fetch article {random_article_title}: {e}")
             embed = embed_templates.error_fatal(str(e))
@@ -270,7 +271,7 @@ class ArticleButton(discord.ui.Button):
             )
 
         try:
-            title, url, text, image = await fetch_article(self.article_title)
+            title, url, text, image = await fetch_article(interaction.client.http_session, self.article_title)
         except VitebokaException as e:
             embed = embed_templates.error_fatal(str(e))
             return await interaction.followup.send(embed=embed)
