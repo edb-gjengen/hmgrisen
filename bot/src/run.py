@@ -1,4 +1,6 @@
+import asyncio
 import os
+import signal
 from time import time
 
 import asyncpg
@@ -56,12 +58,18 @@ class Bot(commands.Bot):
         }
         self.db = await asyncpg.create_pool(**self.db_credentials)
 
+        # Docker and supervisor stop the bot with SIGTERM. Close gracefully so cogs are unloaded
+        try:
+            asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, lambda: asyncio.create_task(self.close()))
+        except NotImplementedError:
+            pass  # Not supported on Windows
+
         # Load cogs
         cogs = os.listdir("./src/cogs")
         for file in cogs:
             if file.endswith(".py"):
                 name = file[:-3]
-                await bot.load_extension(f"cogs.{name}")
+                await self.load_extension(f"cogs.{name}")
 
         # Sync slash commands
         if os.environ.get("BOT_CONFIG_MODE") == "prod":
@@ -69,6 +77,16 @@ class Bot(commands.Bot):
         else:
             self.tree.copy_global_to(guild=discord.Object(id=self.guild_id))
             await self.tree.sync(guild=discord.Object(id=self.guild_id))
+
+    async def __aexit__(self, *args):
+        """
+        Close the database pool after the bot has shut down. This isn't done in close(), because bot.run
+        doesn't wait for a close() started by the SIGTERM handler to finish
+        """
+
+        await super().__aexit__(*args)
+        if hasattr(self, "db"):
+            await self.db.close()
 
 
 # Create bot instance
