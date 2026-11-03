@@ -2,8 +2,9 @@ import asyncio
 from os import listdir
 
 import discord
-from cogs.utils import embed_templates
 from discord.ext import commands
+
+from cogs.utils import embed_templates
 
 
 class DevTools(commands.Cog):

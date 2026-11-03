@@ -6,7 +6,7 @@ atomic = true
 profile = "black"
 line_length = 120
 force_single_line = true
-known_first_party = ["black"]
+src_paths = ["bot/src", "verification_server/src"]
 
 [tool.ruff]
 line-length = 120

@@ -8,18 +8,19 @@ from typing import TypeVar
 import aiohttp
 import asyncpg
 import discord
-from cogs.utils import discord_utils
-from cogs.utils import embed_templates
-from cogs.utils import misc_utils
 from discord import app_commands
 from discord.ext import commands
 from discord.ext import tasks
+from pydantic import ValidationError
+
+from cogs.utils import discord_utils
+from cogs.utils import embed_templates
+from cogs.utils import misc_utils
 from models import BasicResponse
 from models import DiscordProfiles
 from models import DuskenUser
 from models import Groups
 from models import Users
-from pydantic import ValidationError
 
 ResponseModel = TypeVar("ResponseModel", bound=BasicResponse)
 
