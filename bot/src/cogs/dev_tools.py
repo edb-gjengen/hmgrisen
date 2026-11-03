@@ -70,7 +70,7 @@ class DevTools(commands.Cog):
         # Get guild
         try:
             guild = await self.bot.fetch_guild(guild_id)
-        except discord.errors.Forbidden:
+        except (discord.errors.Forbidden, discord.errors.NotFound):
             embed = embed_templates.error_warning("Bot is not a member of this guild")
             return await ctx.reply(embed=embed)
 
