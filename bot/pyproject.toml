@@ -12,6 +12,5 @@ dependencies = [
     "pydantic==2.14.*",
     "pypandoc==1.17.*",
     "python-dotenv==1.2.*",
-    "regex==2026.9.29",
     "tzdata",  # This only needed if run on windows. I haven't set a version either to ensure it's up to date.
 ]

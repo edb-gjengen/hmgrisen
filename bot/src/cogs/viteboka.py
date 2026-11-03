@@ -1,9 +1,9 @@
 import asyncio
+import re
 
 import aiohttp
 import discord
 import pypandoc
-import regex  # This should be redundant as re now supports recursive patterns, but apparently it doesn't
 from discord import app_commands
 from discord.ext import commands
 
@@ -11,6 +11,8 @@ from cogs.utils import embed_templates
 
 WIKI_BASE_URL = "https://viteboka.studentersamfundet.no"
 API_URL = f"{WIKI_BASE_URL}/w/api.php"
+PANDOC_FILTER = "./src/assets/viteboka.lua"
+MAX_TEXT_LENGTH = 1000
 
 
 async def query_api(session: aiohttp.ClientSession, params: dict) -> dict:
@@ -54,11 +56,18 @@ async def fetch_article(session: aiohttp.ClientSession, title: str):
     tuple: The title, url, text and image of the article
     """
 
+    # The wiki renders the article to HTML for us, so templates are already expanded
     params = {
         "action": "parse",
         "format": "json",
+        "formatversion": 2,
         "page": title,
-        "prop": "text|images|displaytitle|wikitext",
+        "prop": "text",
+        "section": 0,  # Only the introduction
+        "redirects": 1,
+        "disableeditsection": 1,
+        "disabletoc": 1,
+        "disablelimitreport": 1,
     }
 
     page = await query_api(session, params)
@@ -67,28 +76,109 @@ async def fetch_article(session: aiohttp.ClientSession, title: str):
             "Fant ingen artikkel med det navnet. Kan hende den finnes, men wiki-søk er balle. De burde tatt søketek"
         )
 
-    title = parse.get("title")
-    url = f"{WIKI_BASE_URL}/?curid={parse.get('pageid')}"
-    image = f"{WIKI_BASE_URL}/w/images/{parse.get('images')[0]}" if parse.get("images") else None
-    text = parse.get("wikitext")["*"]
+    title = parse["title"]
+    url = f"{WIKI_BASE_URL}/?curid={parse['pageid']}"
+    image = await fetch_page_image(session, title)
+    text = await html_to_markdown(parse["text"])
 
-    # If you're reading this, know that I'm on my way
-    # to your house right now to erase your memories of ever reading this shit.
-    # Parsing text fucking sucks. Even more so when it's wiki text with no consistencies whatsoever
-    # This is wildly inefficent but I don't. fucking. care. Just make it work
-    text = regex.sub(
-        r"(?=\{)(\{([^{}]|(?1))*\})|\[\[(Kategori|Fil):.+?\]\]|\{.+?\}", "", text, flags=regex.MULTILINE | regex.DOTALL
-    )  # Remove templates, categories and images
+    # Articles that start with a heading have an empty introduction, so the whole article is used instead
+    if not text:
+        del params["section"]
+        page = await query_api(session, params)
+        text = await html_to_markdown(page["parse"]["text"])
+
+    return title, url, shorten(text, MAX_TEXT_LENGTH), image
+
+
+async def html_to_markdown(html: str) -> str:
+    """
+    Convert article HTML from Viteboka to markdown that Discord can show
+
+    Parameters
+    ----------
+    html (str): The article HTML
+
+    Returns
+    ----------
+    (str): The markdown text
+    """
+
     # Pandoc runs as a subprocess, so it's run in a thread to not block the bot
-    text = await asyncio.to_thread(pypandoc.convert_text, text, "markdown", format="mediawiki")
-    text = regex.sub(
-        r"\[(.+?)\]\(.+? \"wikilink\"\)", r"\1", text, flags=regex.MULTILINE | regex.DOTALL
-    )  # Pandoc adds alt text to links. discord doesn't support that
-    text = regex.sub(r"\{.+\}", "", text)  # Pandoc adds section links. Remove them
-    text = text.strip("\n")
-    text = text[:1000] + "..." if len(text) > 1000 else text
+    text = await asyncio.to_thread(
+        pypandoc.convert_text,
+        html,
+        "gfm-raw_html",
+        format="html",
+        extra_args=["--wrap=none"],
+        filters=[PANDOC_FILTER],
+    )
+    return text.strip()
 
-    return title, url, text, image
+
+async def fetch_page_image(session: aiohttp.ClientSession, title: str) -> str | None:
+    """
+    Fetch the main image of an article from Viteboka
+
+    Parameters
+    ----------
+    session (aiohttp.ClientSession): The HTTP session to use
+    title (str): The title of the article
+
+    Returns
+    ----------
+    (str | None): The url of the image. None if the article has no image or it couldn't be fetched
+    """
+
+    params = {
+        "action": "query",
+        "format": "json",
+        "formatversion": 2,
+        "titles": title,
+        "prop": "pageimages",
+        "piprop": "original",
+    }
+
+    try:
+        pages = (await query_api(session, params))["query"]["pages"]
+    except VitebokaException:
+        return None
+
+    return pages[0].get("original", {}).get("source")
+
+
+def shorten(text: str, limit: int) -> str:
+    """
+    Shorten markdown text to fit within a limit.
+    Pandoc puts every paragraph and list item on its own line, so whole lines are kept where possible
+
+    Parameters
+    ----------
+    text (str): The markdown text
+    limit (int): The maximum length
+
+    Returns
+    ----------
+    (str): The shortened text
+    """
+
+    if len(text) <= limit:
+        return text
+
+    shortened = ""
+    for line in text.split("\n"):
+        if len(shortened) + len(line) + len("\n...") > limit:
+            break
+        shortened += line + "\n"
+
+    room = limit - len(shortened) - len("...")
+    if room < 100 and shortened.strip():
+        return shortened.rstrip() + "\n..."
+
+    # Fill the rest with the start of the line that didn't fit. Its links are removed so cutting it can't break one
+    line = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", line)
+    if len(line) <= room:
+        return shortened + line + "\n..."
+    return shortened + line[:room].rsplit(" ", 1)[0] + "..."
 
 
 def viteboka_embed(title: str, url: str, text: str, image: str):
