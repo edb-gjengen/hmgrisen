@@ -337,7 +337,7 @@ class Info(commands.Cog):
 
     @app_commands.checks.bot_has_permissions(embed_links=True)
     @app_commands.checks.cooldown(1, 2)
-    @guild_group.command(name="banner", description="Hen serverens banner")
+    @guild_group.command(name="banner", description="Hent serverens banner")
     async def guild_banner(self, interaction: discord.Interaction):
         """
         Get the guild banner
