@@ -16,6 +16,6 @@ COPY . .
 
 ENV PATH="/app/.venv/bin:$PATH"
 
-VOLUME logs
+VOLUME /app/logs
 
 CMD ["python3", "src/run.py"]
