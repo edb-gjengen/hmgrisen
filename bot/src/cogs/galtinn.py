@@ -402,6 +402,7 @@ class Galtinn(commands.Cog):
         return success
 
     @tasks.loop(time=misc_utils.MIDNIGHT)
+    @misc_utils.log_errors
     async def membership_check(self):
         """
         Checks all registered user's membership status and assigns roles based on the status
@@ -463,6 +464,7 @@ class Galtinn(commands.Cog):
         await self.bot.wait_until_ready()
 
     @tasks.loop(minutes=2)
+    @misc_utils.log_errors
     async def verification_cleanup(self):
         """
         Clean up any pending verifications that have expired

@@ -1,8 +1,45 @@
+import asyncio
 import datetime
+import functools
 from math import ceil
 from zoneinfo import ZoneInfo
 
+import aiohttp
+import discord
+
 MIDNIGHT = datetime.time(hour=0, minute=0, tzinfo=ZoneInfo("Europe/Oslo"))
+
+# The exceptions discord.py's tasks.loop retries instead of stopping on
+RETRIED_TASK_EXCEPTIONS = (
+    OSError,
+    discord.GatewayNotFound,
+    discord.ConnectionClosed,
+    aiohttp.ClientError,
+    asyncio.TimeoutError,
+)
+
+
+def log_errors(func):
+    """
+    Decorator for background task loops that logs exceptions instead of letting them stop the loop.
+    Network errors are re-raised so discord.py can retry the iteration like it normally does.
+    Put it below the @tasks.loop decorator. The decorated method's class needs a `bot` attribute
+
+    Parameters
+    ----------
+    func (callable): The loop's coroutine function
+    """
+
+    @functools.wraps(func)
+    async def wrapper(self, *args, **kwargs):
+        try:
+            await func(self, *args, **kwargs)
+        except RETRIED_TASK_EXCEPTIONS:
+            raise
+        except Exception:
+            self.bot.logger.exception(f"Unhandled error in background task {func.__qualname__}")
+
+    return wrapper
 
 
 class Paginator:
