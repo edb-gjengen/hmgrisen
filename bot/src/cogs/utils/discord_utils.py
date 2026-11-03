@@ -3,7 +3,7 @@ import io
 import discord
 from discord.ext import commands
 
-from .misc_utils import Paginator
+from cogs.utils import misc_utils
 
 
 async def send_as_txt_file(interaction: discord.Interaction, content: str, filename: str):
@@ -114,7 +114,7 @@ class ScrollerButton(discord.ui.Button):
 
     def __init__(
         self,
-        paginator: Paginator,
+        paginator: misc_utils.Paginator,
         button_action: callable,
         content_constructor: callable,
         owner: discord.User | discord.Member,
@@ -162,7 +162,10 @@ class Scroller(discord.ui.View):
     """View that allows scrolling through pages of data using the pagination module"""
 
     def __init__(
-        self, paginatior: Paginator, owner: discord.User | discord.Member, content_constructor: callable = None
+        self,
+        paginatior: misc_utils.Paginator,
+        owner: discord.User | discord.Member,
+        content_constructor: callable = None,
     ):
         """
         Parameters
