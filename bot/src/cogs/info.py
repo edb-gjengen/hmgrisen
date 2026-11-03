@@ -414,7 +414,12 @@ class Info(commands.Cog):
         embed.add_field(name="Opprettet", value=discord.utils.format_dt(channel.created_at, style="F"))
         embed.add_field(name="NSFW", value="Ja" if channel.is_nsfw() else "Nei")
         embed.add_field(
-            name="Saktemodus", value=f"Ja ({channel.slowmode_delay} sekunder)" if channel.slowmode_delay else "Nei"
+            name="Saktemodus",
+            value=(
+                f"Ja ({channel.slowmode_delay} {'sekund' if channel.slowmode_delay == 1 else 'sekunder'})"
+                if channel.slowmode_delay
+                else "Nei"
+            ),
         )
         if channel.category:
             embed.add_field(name="Kategori", value=channel.category.name)
@@ -441,7 +446,12 @@ class Info(commands.Cog):
         embed.add_field(name="Opprettet", value=discord.utils.format_dt(channel.created_at, style="F"))
         embed.add_field(name="Bitrate", value=f"{int(channel.bitrate / 1000)}kbps")
         embed.add_field(
-            name="Maksgrense", value=f"{channel.user_limit} personer" if channel.user_limit != 0 else "∞ personer"
+            name="Maksgrense",
+            value=(
+                f"{channel.user_limit} {'person' if channel.user_limit == 1 else 'personer'}"
+                if channel.user_limit != 0
+                else "∞ personer"
+            ),
         )
         if channel.category:
             embed.add_field(name="Kategori", value=channel.category.name)
