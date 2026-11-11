@@ -5,8 +5,9 @@ services:
     network_mode: "host"
     environment:
       - TZ=Europe/Oslo
+    # A named volume: docker would create ./logs as root, which the bot cannot write
     volumes:
-      - ./logs:/app/logs
+      - logs:/app/logs
     depends_on:
       - hmgrisen_verification_server
     env_file:
@@ -18,3 +19,6 @@ services:
     network_mode: "host"
     env_file:
       - .env
+
+volumes:
+  logs:
