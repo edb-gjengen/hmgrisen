@@ -8,13 +8,16 @@ jobs:
   # The runner gives jobs no docker socket, so kaniko builds the images unprivileged.
   # Its debug image has busybox but no node, so it clones the commit itself instead of
   # using actions/checkout. One job per image: kaniko builds into its own container's
-  # filesystem, so a second build in the same job would start from the first's.
+  # filesystem, so a second build in the same job would start from the first's. One at a
+  # time: kaniko takes about 2.5 GB for the bot's image, and actionmax has 4 GB.
   image:
     if: vars.DEPLOY_AMIGA == 'true'
     runs-on: ubuntu-latest
     needs:
       - prek
     strategy:
+      max-parallel: 1
+      fail-fast: false
       matrix:
         include:
           - name: bot
