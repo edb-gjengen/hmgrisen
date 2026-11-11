@@ -12,6 +12,8 @@ You have two options to run the API:
 
 ### Option 1 - Docker (Recommended)
 
+From the root of the repository, which starts both:
+
 ```
 docker compose up
 ```
@@ -20,13 +22,13 @@ docker compose up
 
 0. Install [uv](https://docs.astral.sh/uv/getting-started/installation/). It installs the right Python version for you
 
-1. Install dependencies
+1. Install dependencies. The bot and the verification server share one project and one `uv.lock`, at the root of the repository
 
 ```
 uv sync
 ```
 
-2. Run
+2. Run, from this folder
 
 ```
 uv run uvicorn src.server:app --port 8001

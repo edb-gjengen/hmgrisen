@@ -1,0 +1,7 @@
+.git
+.gitea
+.venv
+venv
+**/__pycache__
+**/.env
+bot/logs

@@ -1,3 +1,23 @@
+[project]
+name = "hmgrisen"
+version = "0.1.0"
+description = "A multi-purpose Discord bot for the Discord server of The Norwegian Student Society, and the server that verifies its Galtinn logins"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp==3.14.*",
+    "asyncpg==0.32.*",
+    "discord.py==2.7.*",
+    "fastapi==0.162.*",
+    "jinja2==3.1.*",
+    "psutil==7.2.*",
+    "pydantic==2.14.*",
+    "pypandoc==1.17.*",
+    "python-dotenv==1.2.*",
+    "tzdata",  # This only needed if run on windows. I haven't set a version either to ensure it's up to date.
+    "uvicorn==0.54.*",
+]
+
 [tool.black]
 line-length = 120
 

@@ -1,13 +1,13 @@
 services:
   hmgrisen_bot:
     container_name: hmgrisen_bot
-    build: ./bot
+    build: .
     network_mode: "host"
     environment:
       - TZ=Europe/Oslo
     # A named volume: docker would create ./logs as root, which the bot cannot write
     volumes:
-      - logs:/app/logs
+      - logs:/app/bot/logs
     depends_on:
       - hmgrisen_verification_server
     env_file:
@@ -15,7 +15,9 @@ services:
 
   hmgrisen_verification_server:
     container_name: hmgrisen_verification_server
-    build: ./verification_server
+    build: .
+    working_dir: /app/verification_server
+    command: ["uvicorn", "src.server:app", "--host", "0.0.0.0", "--port", "8001"]
     network_mode: "host"
     env_file:
       - .env

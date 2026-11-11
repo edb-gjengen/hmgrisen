@@ -5,25 +5,14 @@ on:
     branches: [main]
 
 jobs:
-  # The runner gives jobs no docker socket, so kaniko builds the images unprivileged.
+  # The runner gives jobs no docker socket, so kaniko builds the image unprivileged.
   # Its debug image has busybox but no node, so it clones the commit itself instead of
-  # using actions/checkout. One job per image: kaniko builds into its own container's
-  # filesystem, so a second build in the same job would start from the first's. One at a
-  # time: kaniko takes about 2.5 GB for the bot's image, and actionmax has 4 GB.
+  # using actions/checkout.
   image:
     if: vars.DEPLOY_AMIGA == 'true'
     runs-on: ubuntu-latest
     needs:
       - prek
-    strategy:
-      max-parallel: 1
-      fail-fast: false
-      matrix:
-        include:
-          - name: bot
-            directory: bot
-          - name: verifier
-            directory: verification_server
     container: ghcr.io/osscontainertools/kaniko:v1.29.0-debug
     defaults:
       run:
@@ -40,14 +29,13 @@ jobs:
           printf '{"auths":{"git.neuf.no":{"auth":"%s"}}}' "$auth" > /kaniko/.docker/config.json
           /kaniko/executor \
             --context "git://git.neuf.no/${{ github.repository }}.git#${{ github.ref }}#${{ github.sha }}" \
-            --context-sub-path "${{ matrix.directory }}" \
-            --destination "git.neuf.no/edb/hmgrisen-${{ matrix.name }}:${{ github.sha }}" \
-            --cache=true --cache-repo "git.neuf.no/edb/hmgrisen-${{ matrix.name }}-cache" \
+            --destination "git.neuf.no/edb/hmgrisen:${{ github.sha }}" \
+            --cache=true --cache-repo git.neuf.no/edb/hmgrisen-cache \
             --snapshot-mode=redo --use-new-run \
             --reproducible
 
   # amiga's authorized_keys sends this key to hmgrisen-deploy, which reads the sha from
-  # the ssh command line and deploys both images at that tag.
+  # the ssh command line.
   deploy-amiga:
     if: vars.DEPLOY_AMIGA == 'true'
     runs-on: ubuntu-latest
