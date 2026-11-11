@@ -598,10 +598,6 @@ class Galtinn(commands.Cog):
         interaction (discord.Interaction): The slash command interaction
         """
 
-        # TODO: add confirmation button
-        # I could not get it to consistently work
-        # because discord interactions are confusing as hell
-
         await interaction.response.defer(ephemeral=True)
 
         # Check if user exists
@@ -614,6 +610,19 @@ class Galtinn(commands.Cog):
         if galtinn_users.count == 0:
             embed = embed_templates.error_warning("Du er ikke registrert!")
             await interaction.followup.send(embed=embed)
+            return
+
+        # The buttons answer their own interactions; this one's followups stay valid for 15 minutes
+        view = discord_utils.Confirm(interaction.user, confirm_label="Slett koblingen")
+        embed = embed_templates.error_warning(
+            "Vil du slette koblingen mellom Galtinnbrukeren din og Discord? Du mister rollene du har fått fra Galtinn"
+        )
+        prompt = await interaction.followup.send(embed=embed, view=view, ephemeral=True, wait=True)
+        await view.wait()
+        if not view.confirmed:
+            text = "Avbrutt" if view.confirmed is False else "Ingen svar"
+            embed = embed_templates.error_warning(f"{text}. Koblingen er ikke slettet")
+            await prompt.edit(embed=embed, view=None)
             return
 
         self.bot.logger.info(f"Deleting user {interaction.user.id}")

@@ -267,3 +267,63 @@ class Scroller(discord.ui.View):
         embed.description = "\n".join(page)
         embed.set_footer(text=f"Side {self.paginator.current_page}/{self.paginator.total_page_count}")
         return embed
+
+
+class Confirm(discord.ui.View):
+    """
+    A confirm and a cancel button. Await wait(), then read confirmed: True or False for the button pressed, None if
+    the view timed out first
+    """
+
+    def __init__(self, owner: discord.User | discord.Member, confirm_label: str, timeout: float = 60):
+        """
+        Parameters
+        ----------
+        owner (discord.User | discord.Member): The user who has to answer. Only this user can use the buttons
+        confirm_label (str): The text on the confirm button, naming what it does
+        timeout (float): Seconds to wait for an answer
+        """
+
+        super().__init__(timeout=timeout)
+        self.owner = owner
+        self.confirmed: bool | None = None
+        self.confirm.label = confirm_label
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """
+        Turn away anyone but the owner
+
+        Parameters
+        ----------
+        interaction (discord.Interaction): The button press
+        """
+
+        if interaction.user.id != self.owner.id:
+            await interaction.response.send_message(
+                "Bare den som skrev kommandoen kan bruke denne knappen", ephemeral=True
+            )
+            return False
+        return True
+
+    @discord.ui.button(style=discord.ButtonStyle.danger)
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.answer(interaction, True)
+
+    @discord.ui.button(label="Avbryt", style=discord.ButtonStyle.secondary)
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.answer(interaction, False)
+
+    async def answer(self, interaction: discord.Interaction, confirmed: bool):
+        """
+        Record the answer and remove the buttons. Discord fails a button press that is not acknowledged within three
+        seconds, so the message edit is the acknowledgement and comes first
+
+        Parameters
+        ----------
+        interaction (discord.Interaction): The button press
+        confirmed (bool): Whether the confirm button was pressed
+        """
+
+        await interaction.response.edit_message(view=None)
+        self.confirmed = confirmed
+        self.stop()
