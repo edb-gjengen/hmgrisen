@@ -9,6 +9,17 @@ from cogs.utils import embed_templates
 from cogs.utils import misc_utils
 
 
+class EmojiTransformer(app_commands.Transformer):
+    """
+    A custom emoji from text. Discord has no option type for emojis, so the user types one, its name or its ID, and
+    the prefix commands' converter looks it up: in this server first, then in every server the bot is in
+    """
+
+    async def transform(self, interaction: discord.Interaction, value: str) -> discord.Emoji:
+        ctx = await commands.Context.from_interaction(interaction)
+        return await commands.EmojiConverter().convert(ctx, value.strip())
+
+
 class Info(commands.Cog):
     """View information about Discord object such as guilds, users, roles and channels"""
 
@@ -483,36 +494,36 @@ class Info(commands.Cog):
         )
         await interaction.response.send_message(embed=embed, view=view)
 
-    # NOTE: This command is implemented using the old command framework
-    # This is due to lack of emoji support in the new framework
-    # TODO: take a look at this command when/if the new framework supports emojis
-    @commands.guild_only()
-    @commands.bot_has_permissions(embed_links=True)
-    @commands.cooldown(1, 2)
-    @commands.command(name="emoji", description="Hent informasjon om en emoji i serveren")
-    async def emoji(self, ctx: commands.Context, emoji: discord.Emoji):
+    @app_commands.checks.bot_has_permissions(embed_links=True)
+    @app_commands.checks.cooldown(1, 2)
+    @app_commands.describe(emoji="Emojien, navnet eller ID-en dens")
+    @guild_group.command(name="emoji", description="Hent informasjon om en emoji i serveren")
+    async def emoji(
+        self, interaction: discord.Interaction, emoji: app_commands.Transform[discord.Emoji, EmojiTransformer]
+    ):
         """
         Get information about an emoji in the server
 
         Parameters
         ----------
-        ctx (commands.Context): The command context
+        interaction (discord.Interaction): The slash command interaction
         emoji (discord.Emoji): Emoji to fetch information about
         """
 
+        # The cached emoji has no creator; fetching it does, given manage_emojis in its server
         emoji = await emoji.guild.fetch_emoji(emoji.id)
         try:
             emoji_creator = f"{emoji.user.mention}\n{emoji.user.name}"
         except AttributeError:
             emoji_creator = "Jeg trenger `manage_emojis`-tillatelsen på serveren den er fra for å hente dette"
 
-        embed = discord.Embed(color=ctx.me.color, title=emoji.name, description=f"ID: {emoji.id}")
+        embed = discord.Embed(color=interaction.guild.me.color, title=emoji.name, description=f"ID: {emoji.id}")
         embed.set_author(name=emoji.guild.name, icon_url=emoji.guild.icon)
         embed.add_field(name="Opprettet", value=discord.utils.format_dt(emoji.created_at, style="F"))
         embed.add_field(name="Animert", value="Ja" if emoji.animated else "Nei")
         embed.add_field(name="Lagt til av", value=emoji_creator)
         embed.set_image(url=emoji.url)
-        await ctx.reply(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
     guild_oldest_group = app_commands.Group(
         name="eldst", description="Viser de eldste medlemmene på serveren", parent=guild_group

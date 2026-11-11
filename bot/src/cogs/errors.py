@@ -149,6 +149,9 @@ class Errors(commands.Cog):
             embed = embed_templates.error_warning(
                 f"Kommandoen har nettopp blitt brukt\nPrøv igjen om `{error.retry_after:.1f}` sekunder."
             )
+        elif isinstance(error, app_commands.TransformerError):
+            # A value the command's transformer could not turn into what it asks for, such as an unknown emoji
+            embed = embed_templates.error_warning(f"Fant ikke `{error.value}`")
         else:
             embed = embed_templates.error_fatal("En ukjent feil oppstod!")
             files.append(discord.File("./src/assets/edb.png"))
