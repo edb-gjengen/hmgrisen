@@ -1,0 +1,65 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  # The runner gives jobs no docker socket, so kaniko builds the images unprivileged.
+  # Its debug image has busybox but no node, so it clones the commit itself instead of
+  # using actions/checkout. One job per image: kaniko builds into its own container's
+  # filesystem, so a second build in the same job would start from the first's.
+  image:
+    if: vars.DEPLOY_AMIGA == 'true'
+    runs-on: ubuntu-latest
+    needs:
+      - prek
+    strategy:
+      matrix:
+        include:
+          - name: bot
+            directory: bot
+          - name: verifier
+            directory: verification_server
+    container: ghcr.io/osscontainertools/kaniko:v1.29.0-debug
+    defaults:
+      run:
+        shell: sh
+    steps:
+      - name: Build and push
+        env:
+          GIT_USERNAME: ${{ github.actor }}
+          GIT_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          auth=$(printf '%s:%s' "$REGISTRY_USER" "$REGISTRY_TOKEN" | base64 | tr -d '\n')
+          printf '{"auths":{"git.neuf.no":{"auth":"%s"}}}' "$auth" > /kaniko/.docker/config.json
+          /kaniko/executor \
+            --context "git://git.neuf.no/${{ github.repository }}.git#${{ github.ref }}#${{ github.sha }}" \
+            --context-sub-path "${{ matrix.directory }}" \
+            --destination "git.neuf.no/edb/hmgrisen-${{ matrix.name }}:${{ github.sha }}" \
+            --cache=true --cache-repo "git.neuf.no/edb/hmgrisen-${{ matrix.name }}-cache" \
+            --snapshot-mode=redo --use-new-run \
+            --reproducible
+
+  # amiga's authorized_keys sends this key to hmgrisen-deploy, which reads the sha from
+  # the ssh command line and deploys both images at that tag.
+  deploy-amiga:
+    if: vars.DEPLOY_AMIGA == 'true'
+    runs-on: ubuntu-latest
+    needs:
+      - image
+    steps:
+      - name: Deploy
+        run: |
+          command -v ssh-agent >/dev/null || ( apt-get update -y && apt-get install openssh-client -y )
+          eval $(ssh-agent -s)
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' | ssh-add -
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+          ssh hmgrisen-deploy@amiga.neuf.no "${{ github.sha }}"
+
+  prek:
+    uses: ./.gitea/workflows/prek.yml
